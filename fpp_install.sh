@@ -281,6 +281,10 @@ seed_default_config_if_missing() {
     "email": "",
     "key": "",
     "trialSecondsUsed": 0
+  },
+  "ui": {
+    "onboardingSeen": false,
+    "onboardingTourEnabled": true
   }
 }
 EOF

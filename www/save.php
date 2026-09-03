@@ -23,6 +23,7 @@ function defaultConfig() {
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
     "license" => ["email" => "", "key" => "", "trialSecondsUsed" => 0],
+    "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
 }
 
@@ -84,6 +85,14 @@ $cfg["spotify"]["playlistName"] = trim((string)($_POST["spotify_playlistName"] ?
 // trialSecondsUsed is only ever written by er_track_usage.sh.
 $cfg["license"]["email"] = trim((string)($_POST["license_email"] ?? $cfg["license"]["email"]));
 $cfg["license"]["key"] = trim((string)($_POST["license_key"] ?? $cfg["license"]["key"]));
+
+// Guided tour toggle (onboardingSeen is only ever written by
+// mark_onboarding_seen.php, not this form). Same pattern as
+// announce_enabled below: an unchecked checkbox simply isn't in POST at
+// all, and isset() being false already correctly means "off" - no special
+// case needed, unlike a field that should preserve its prior value when
+// absent.
+$cfg["ui"]["onboardingTourEnabled"] = isset($_POST["ui_onboardingTourEnabled"]) && $_POST["ui_onboardingTourEnabled"] === "1";
 
 // Announcement Assistant scheduling (M2)
 $cfg["announce"]["enabled"] = isset($_POST["announce_enabled"]) && $_POST["announce_enabled"] === "1";

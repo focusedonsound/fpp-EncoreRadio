@@ -11,6 +11,7 @@ function loadConfig($path) {
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
     "license" => ["email" => "", "key" => "", "trialSecondsUsed" => 0],
+    "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
   if (file_exists($path)) {
     $j = json_decode(@file_get_contents($path), true);
@@ -46,6 +47,24 @@ $trialSecondsRemaining = max(0, (10 * 3600) - $trialSecondsUsed);
 $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 ?>
 
+<style>
+  #er-tour-highlight {
+    position: fixed; z-index: 10050; pointer-events: none;
+    border: 2px solid #0d6efd; border-radius: 6px;
+    box-shadow: 0 0 0 4000px rgba(0,0,0,0.45);
+    transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s;
+  }
+  #er-tour-popup {
+    position: fixed; z-index: 10051; max-width: 340px; width: calc(100% - 24px);
+  }
+  #er-tour-arrow {
+    position: fixed; z-index: 10051; width: 0; height: 0;
+    border-left: 9px solid transparent; border-right: 9px solid transparent;
+  }
+  .er-tour-arrow-below { border-top: 9px solid var(--bs-body-bg, #fff); }
+  .er-tour-arrow-above { border-bottom: 9px solid var(--bs-body-bg, #fff); }
+</style>
+
 <h1 class="title">Encore Radio</h1>
 <p>
   Keep the show's radio station going after the lights go dark. Pick a
@@ -53,6 +72,15 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   playlist) is a premium feature. Add FPP Schedule entries calling
   <strong>Encore Radio - Start</strong> / <strong>Encore Radio - Stop</strong>
   for your after-hours window, and you're set.
+</p>
+
+<p>
+  <a href="#" id="er-onboarding-replay" class="small me-2">Replay walkthrough</a>
+  <label class="small text-muted">
+    <input type="checkbox" name="ui_onboardingTourEnabled" id="er-onboardingTourEnabled" form="erForm"
+           <?php echo $cfg["ui"]["onboardingTourEnabled"] ? "checked" : ""; ?> />
+    Show this walkthrough for new visits to this page
+  </label>
 </p>
 
 <form id="erForm" onsubmit="return false;">
@@ -75,7 +103,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
     <div id="er-tunein-section" style="margin-top:14px; display:none;">
       <div>
-        <input type="text" id="er-tunein-search" placeholder="Search TuneIn stations..." style="width:320px;" />
+        <input type="text" id="er-tunein-search" placeholder="Search TuneIn stations..." style="width:100%; max-width:320px;" />
         <button type="button" class="buttons btn-outline-primary" onclick="erSearchTuneIn()">Search</button>
       </div>
       <div id="er-tunein-results" style="margin-top:8px;"></div>
@@ -112,7 +140,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
           <td><input type="text" name="pandora_stationName" value="<?php echo htmlspecialchars($cfg["pandora"]["stationName"]); ?>" style="width:100%;" /></td>
         </tr>
       </table>
-      <p style="font-size:0.9em; color:#888;">
+      <p class="small text-muted">
         Station ID is the number from your Pandora station's URL. Pianobar
         prints available station IDs to the Encore Radio log on first login
         if you're not sure which to use.
@@ -121,14 +149,14 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
     <div id="er-spotify-section" style="margin-top:14px; display:none;">
       <?php if (!$raspotifyInstalled): ?>
-        <p style="color:#c33;">
+        <p class="text-danger">
           Raspotify (the Spotify Connect client this plugin uses) wasn't
           installed successfully - check the install log. Your device's
           processor architecture may not be supported.
         </p>
       <?php endif; ?>
 
-      <p style="font-size:0.9em; color:#888;">
+      <p class="small text-muted">
         Spotify needs two separate one-time setup steps:
         <strong>1)</strong> connect your own Spotify Developer App below (so
         Encore Radio can search your playlists and start playback), and
@@ -154,7 +182,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
           </td>
         </tr>
       </table>
-      <p style="font-size:0.9em; color:#888;">
+      <p class="small text-muted">
         Create a free app at
         <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a>,
         then add this exact Redirect URI to it:
@@ -172,7 +200,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
       <?php if ($spotifyConnected): ?>
         <div>
-          <input type="text" id="er-spotify-search" placeholder="Search your playlists..." style="width:320px;" />
+          <input type="text" id="er-spotify-search" placeholder="Search your playlists..." style="width:100%; max-width:320px;" />
           <button type="button" class="buttons btn-outline-primary" onclick="erSearchSpotify()">Search</button>
         </div>
         <div id="er-spotify-results" style="margin-top:8px;"></div>
@@ -198,11 +226,10 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     <legend>Announcements</legend>
 
     <?php if (!$aaInstalled): ?>
-      <p style="color:#888;">
-        <a href="https://github.com/focusedonsound/fpp-AnnouncementAssistant" target="_blank">Announcement Assistant</a>
-        isn't installed, so scheduled announcements aren't available yet.
-        Install it if you want radio-station-style announcements layered
-        over the stream.
+      <p class="text-muted">
+        Scheduled announcements aren't available - they require another
+        FPP plugin with a Play/Stop command compatible with this feature
+        to be installed first.
       </p>
     <?php else: ?>
       <label>
@@ -288,7 +315,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       </button>
       <span id="er-license-status" style="margin-left:10px;"></span>
     </div>
-    <p style="font-size:0.9em; color:#888;">
+    <p class="small text-muted">
       Registering just lets us email you before your trial runs out and
       issue a license key when you're ready - Encore Radio itself never
       links to a purchase page (not allowed by the FPP plugin guidelines).
@@ -465,5 +492,157 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     const res = await fetch(erUrl('stop.php'), { cache: 'no-store' });
     const j = await erReadJson(res);
     erSetStatus(j.ok ? "Stopped." : ("Error: " + (j.error || "unknown")));
+  }
+
+  // --- First-run guided tour -----------------------------------------
+  // Same coach-mark approach as fpp-plugin-RemoteBackup's config.php:
+  // steps top to bottom through this page's own sections, a spotlight +
+  // arrow + popup card, auto-shown once, replayable, toggleable off.
+  var ER_TOUR_STEPS = [
+    {
+      selector: '#er-fieldset-source',
+      title: 'Pick a Source',
+      text: 'TuneIn and Pandora are free - just pick a station/genre. ' +
+        'Spotify lets you play your own custom playlist, which is the ' +
+        'premium feature (10 free trial hours, then a license key).'
+    },
+    {
+      selector: '#er-fieldset-volume',
+      title: 'Volume',
+      text: 'Sets the level Encore Radio plays at. If you also use ' +
+        'Announcement Assistant, announcements duck down from this level ' +
+        'and back up automatically.'
+    },
+    {
+      selector: '#er-fieldset-announce',
+      title: 'Announcements',
+      text: 'Optional. If Announcement Assistant is installed, pick one of ' +
+        'its slots and a schedule (every N minutes, or specific times) to ' +
+        'get radio-station-style announcements layered over the stream ' +
+        'automatically - no need to add separate FPP schedule entries for it.'
+    },
+    {
+      selector: '#er-fieldset-license',
+      title: 'License (Premium)',
+      text: 'Tracks your 10-hour Spotify trial (TuneIn/Pandora never count ' +
+        'against it). Register your email so we can reach you before it ' +
+        'runs out, and enter a license key here once you have one - ' +
+        'nothing on this page ever links to a purchase page.'
+    },
+    {
+      selector: '#er-save',
+      title: 'Save, Start Now, Stop',
+      text: 'Save your settings, or use Start Now / Stop to test right ' +
+        'from here. For actual after-hours use, add two FPP Schedule ' +
+        'entries calling the "Encore Radio - Start" and "Encore Radio - ' +
+        'Stop" commands instead - that\'s it, you\'re done!'
+    }
+  ];
+  var erTourIndex = -1;
+  var erTourReposition = null;
+
+  function erTourBuildDom() {
+    if (document.getElementById('er-tour-popup')) return;
+    var hl = document.createElement('div');
+    hl.id = 'er-tour-highlight';
+    var arrow = document.createElement('div');
+    arrow.id = 'er-tour-arrow';
+    var popup = document.createElement('div');
+    popup.id = 'er-tour-popup';
+    popup.className = 'card shadow-lg border-primary';
+    popup.innerHTML =
+      '<div class="card-body">' +
+      '<div class="small text-muted mb-1" id="er-tour-step-of"></div>' +
+      '<div class="fw-bold mb-1" id="er-tour-title"></div>' +
+      '<div class="mb-2" id="er-tour-text"></div>' +
+      '<div class="d-flex justify-content-between">' +
+      '<button type="button" class="buttons btn-outline-secondary" id="er-tour-back">Back</button>' +
+      '<button type="button" class="buttons" id="er-tour-skip">Skip Tour</button>' +
+      '<button type="button" class="buttons btn-outline-primary" id="er-tour-next">Next</button>' +
+      '</div></div>';
+    document.body.appendChild(hl);
+    document.body.appendChild(arrow);
+    document.body.appendChild(popup);
+    document.getElementById('er-tour-back').addEventListener('click', function () { erTourGo(erTourIndex - 1); });
+    document.getElementById('er-tour-next').addEventListener('click', function () { erTourGo(erTourIndex + 1); });
+    document.getElementById('er-tour-skip').addEventListener('click', erTourEnd);
+  }
+
+  function erTourStart() {
+    erTourBuildDom();
+    erTourGo(0);
+  }
+
+  function erTourGo(index) {
+    if (index < 0) return;
+    if (index >= ER_TOUR_STEPS.length) { erTourEnd(); return; }
+    erTourIndex = index;
+    var step = ER_TOUR_STEPS[index];
+    var target = document.querySelector(step.selector);
+    if (!target) { erTourGo(index + 1); return; }
+    document.getElementById('er-tour-step-of').textContent = 'Step ' + (index + 1) + ' of ' + ER_TOUR_STEPS.length;
+    document.getElementById('er-tour-title').textContent = step.title;
+    document.getElementById('er-tour-text').textContent = step.text;
+    document.getElementById('er-tour-back').disabled = index === 0;
+    document.getElementById('er-tour-next').textContent = (index === ER_TOUR_STEPS.length - 1) ? 'Finish' : 'Next';
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    clearTimeout(erTourReposition);
+    erTourReposition = setTimeout(erTourPosition, 260);
+  }
+
+  function erTourPosition() {
+    var step = ER_TOUR_STEPS[erTourIndex];
+    var target = step && document.querySelector(step.selector);
+    if (!target) return;
+    var rect = target.getBoundingClientRect();
+    var pad = 6;
+    var hl = document.getElementById('er-tour-highlight');
+    hl.style.top = (rect.top - pad) + 'px';
+    hl.style.left = (rect.left - pad) + 'px';
+    hl.style.width = (rect.width + pad * 2) + 'px';
+    hl.style.height = (rect.height + pad * 2) + 'px';
+
+    var popup = document.getElementById('er-tour-popup');
+    var arrow = document.getElementById('er-tour-arrow');
+    var popupW = popup.offsetWidth || 320;
+    var spaceBelow = window.innerHeight - rect.bottom;
+    var below = spaceBelow >= 170 || spaceBelow >= rect.top;
+    var left = Math.max(8, Math.min(rect.left, window.innerWidth - popupW - 8));
+    popup.style.left = left + 'px';
+    if (below) {
+      popup.style.top = (rect.bottom + pad + 12) + 'px';
+      popup.style.bottom = '';
+    } else {
+      popup.style.bottom = (window.innerHeight - rect.top + pad + 12) + 'px';
+      popup.style.top = '';
+    }
+    var arrowLeft = Math.max(left + 14, Math.min(rect.left + rect.width / 2 - 9, left + popupW - 26));
+    arrow.style.left = arrowLeft + 'px';
+    arrow.className = below ? 'er-tour-arrow-above' : 'er-tour-arrow-below';
+    if (below) { arrow.style.top = (rect.bottom + pad) + 'px'; arrow.style.bottom = ''; }
+    else { arrow.style.bottom = (window.innerHeight - rect.top + pad) + 'px'; arrow.style.top = ''; }
+  }
+
+  function erTourEnd() {
+    erTourIndex = -1;
+    ['er-tour-highlight', 'er-tour-arrow', 'er-tour-popup'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.remove();
+    });
+    fetch(erUrl('mark_onboarding_seen.php'), { method: 'POST', cache: 'no-store' }).catch(function () {});
+  }
+
+  window.addEventListener('resize', function () { if (erTourIndex >= 0) erTourPosition(); });
+  window.addEventListener('scroll', function () { if (erTourIndex >= 0) erTourPosition(); }, true);
+
+  document.getElementById('er-onboarding-replay').addEventListener('click', function (e) {
+    e.preventDefault();
+    erTourStart();
+  });
+
+  if (!<?php echo $cfg["ui"]["onboardingSeen"] ? "true" : "false"; ?> &&
+      document.getElementById('er-onboardingTourEnabled').checked) {
+    erTourStart();
   }
 </script>
