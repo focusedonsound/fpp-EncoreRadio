@@ -286,6 +286,7 @@ seed_default_config_if_missing() {
   },
   "license": {
     "email": "",
+    "registered": false,
     "key": "",
     "trialSecondsUsed": 0
   },

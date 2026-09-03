@@ -45,15 +45,20 @@ $curlError = curl_error($ch);
 curl_close($ch);
 
 $cfg["license"]["email"] = $email;
+// Registered is the soft gate for the whole plugin now (see save.php) -
+// set it as soon as we have a syntactically valid email, regardless of
+// whether the license server was reachable just now. The point is
+// capturing the email; a transient network failure here shouldn't lock
+// someone out of the plugin entirely, and the next usage report retries
+// the server-side registration anyway (see er_track_usage.sh).
+$cfg["license"]["registered"] = true;
 
 $tmp = $configFile . ".tmp";
 @file_put_contents($tmp, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
 @rename($tmp, $configFile);
 
 if ($httpCode === 200) {
-  respond(true, "Registered! You'll get an email when your trial hours are running low.");
+  respond(true, "Registered! We'll email you when your trial is running low, and if it runs out.");
 }
 
-// Email is still saved locally above even on a network failure here, so a
-// retry later (or the next automatic usage report) doesn't lose it.
-respond(false, "Couldn't reach the license server right now - your email is saved and registration will retry automatically. (" . ($curlError ?: "HTTP {$httpCode}") . ")");
+respond(true, "Registered locally - we'll keep trying to reach the license server in the background, so you're all set either way. (" . ($curlError ?: "HTTP {$httpCode}") . ")");

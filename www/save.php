@@ -22,7 +22,7 @@ function defaultConfig() {
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
-    "license" => ["email" => "", "key" => "", "trialSecondsUsed" => 0],
+    "license" => ["email" => "", "registered" => false, "key" => "", "trialSecondsUsed" => 0],
     "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
 }
@@ -41,6 +41,15 @@ if (file_exists($configFile)) {
   if (is_array($j)) $cfg = array_replace_recursive($cfg, $j);
 }
 
+// Registration (just an email, nothing else) is the one soft gate for the
+// whole plugin - enforced here, not just cosmetically greyed out in the
+// UI, since nothing downstream (TuneIn included) can be configured
+// without a successful save. Registration itself happens through
+// license_register.php, which sets this flag directly - this endpoint
+// only checks it, it never sets it.
+if (!($cfg["license"]["registered"] ?? false)) {
+  respond(false, "Register your email at the top of the page first - it's the only thing required before you can use Encore Radio.");
+}
 
 $source = trim((string)($_POST["source"] ?? ""));
 if (!in_array($source, ["", "tunein", "pandora", "spotify"], true)) {

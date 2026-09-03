@@ -10,7 +10,7 @@ function loadConfig($path) {
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
-    "license" => ["email" => "", "key" => "", "trialSecondsUsed" => 0],
+    "license" => ["email" => "", "registered" => false, "key" => "", "trialSecondsUsed" => 0],
     "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
   if (file_exists($path)) {
@@ -41,6 +41,7 @@ $aaInstalled = file_exists("/home/fpp/media/config/announcementassistant.json");
 $spotifyConnected = trim((string)$cfg["spotify"]["refreshToken"]) !== "";
 $raspotifyInstalled = file_exists("/usr/bin/librespot");
 
+$registered = (bool)($cfg["license"]["registered"] ?? false);
 $hasLicenseKey = trim((string)$cfg["license"]["key"]) !== "";
 $trialSecondsUsed = (int)($cfg["license"]["trialSecondsUsed"] ?? 0);
 $trialSecondsRemaining = max(0, (10 * 3600) - $trialSecondsUsed);
@@ -169,7 +170,37 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   </label>
 </p>
 
+<div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-signup">
+  <div class="fppTableContents">
+    <table class="fppSelectableRowTable" style="width:100%;">
+      <thead>
+        <tr><th style="padding:8px;"><i class="fas fa-fw fa-envelope"></i> Get Started</th></tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:8px;">
+          <?php if ($registered): ?>
+            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Everything below is unlocked.</p>
+          <?php else: ?>
+            <p class="text-muted">
+              Just an email address - nothing else required to start using
+              Encore Radio (TuneIn included). We'll only use it to let you
+              know if your Pandora/Spotify trial is running low, or when
+              it runs out.
+            </p>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <input type="email" class="form-control form-control-sm" id="er-signup-email" placeholder="you@example.com" style="width:100%; max-width:320px;" />
+              <button type="button" class="er-btn" onclick="erSignUp()"><i class="fas fa-fw fa-user-plus"></i> Get Started</button>
+            </div>
+            <span id="er-signup-status" class="d-block mt-2 small"></span>
+          <?php endif; ?>
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 <form id="erForm" onsubmit="return false;">
+<fieldset id="er-gate" <?php echo $registered ? "" : "disabled"; ?> style="<?php echo $registered ? "" : "opacity:0.55;"; ?>">
 
   <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-source">
     <div class="fppTableContents">
@@ -435,26 +466,20 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
             <?php endif; ?>
           </td></tr>
           <tr>
-            <td class="py-1" style="padding:8px; width:160px;">Email</td>
-            <td class="py-1" style="padding:8px;">
-              <input type="email" class="form-control form-control-sm" name="license_email" id="er-license-email" style="max-width:320px;" value="<?php echo htmlspecialchars($cfg["license"]["email"]); ?>" />
-            </td>
-          </tr>
-          <tr>
-            <td class="py-1" style="padding:8px;">License Key</td>
+            <td class="py-1" style="padding:8px; width:160px;">License Key</td>
             <td class="py-1" style="padding:8px;">
               <input type="text" class="form-control form-control-sm" name="license_key" style="max-width:320px;" value="<?php echo htmlspecialchars($cfg["license"]["key"]); ?>" />
             </td>
           </tr>
           <tr><td colspan="2" style="padding:8px;">
-            <button type="button" class="er-btn" onclick="erSave().then(erRegisterLicense)">
-              <i class="fas fa-fw fa-user-plus"></i> Save &amp; Register
+            <button type="button" class="er-btn" onclick="erSave()">
+              <i class="fas fa-fw fa-floppy-disk"></i> Save Key
             </button>
-            <span id="er-license-status" class="ms-2"></span>
             <p class="small text-muted mt-2 mb-0">
-              Registering just lets us email you before your trial runs out and
-              issue a license key when you're ready - Encore Radio itself never
-              links to a purchase page (not allowed by the FPP plugin guidelines).
+              Registered above at <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong> -
+              paste your license key here once you have one. Encore Radio
+              itself never links to a purchase page (not allowed by the FPP
+              plugin guidelines).
             </p>
           </td></tr>
         </tbody>
@@ -468,6 +493,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     <button type="button" class="er-btn er-btn-secondary" onclick="erStop()"><i class="fas fa-fw fa-stop"></i> Stop</button>
     <span id="erStatus" class="ms-2"></span>
   </div>
+</fieldset>
 </form>
 
 <script>
@@ -598,17 +624,27 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     });
   }
 
-  async function erRegisterLicense() {
-    const statusEl = document.getElementById('er-license-status');
+  async function erSignUp() {
+    const statusEl = document.getElementById('er-signup-status');
+    const emailEl = document.getElementById('er-signup-email');
+    const email = emailEl.value.trim();
+    if (!email) { statusEl.textContent = "Enter an email address first."; return; }
     statusEl.textContent = "Registering...";
-    const email = document.getElementById('er-license-email').value.trim();
     const res = await fetch(erUrl('license_register.php'), {
       method: 'POST',
       body: new URLSearchParams({ email }),
       cache: 'no-store'
     });
     const j = await erReadJson(res);
-    statusEl.textContent = j.message || j.status || "";
+    if (j.status === 'OK') {
+      statusEl.textContent = j.message || "Registered!";
+      // Reload so the page re-renders with everything unlocked - simpler
+      // and more reliable than trying to un-disable the whole fieldset
+      // and re-run every PHP-derived default in place with JS.
+      setTimeout(function () { window.location.reload(); }, 800);
+    } else {
+      statusEl.textContent = j.message || "Something went wrong.";
+    }
   }
 
   async function erSave() {
