@@ -4,10 +4,8 @@ ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-// PLACEHOLDER SERVER: matches scripts/er_premium_gate.sh's
-// LICENSE_SERVER_BASE - not a real endpoint until M5 (a Cloudflare Worker)
-// is built. Swap both constants together.
-$licenseServerBase = "https://license.focusedonsound.example/api";
+// Matches scripts/er_premium_gate.sh's LICENSE_SERVER_BASE.
+$licenseServerBase = "https://encoreradio-license.nscilingo.workers.dev/api";
 
 $configFile = "/home/fpp/media/config/encoreradio.json";
 
@@ -56,7 +54,6 @@ if ($httpCode === 200) {
   respond(true, "Registered! You'll get an email when your trial hours are running low.");
 }
 
-// The license server doesn't exist yet (M5) - this is expected right now,
-// not a bug. Email is still saved locally above so nothing is lost once
-// M5 ships and this can be retried.
-respond(false, "Couldn't reach the license server (it may not be set up yet) - your email is saved and registration will complete automatically once it is. (" . ($curlError ?: "HTTP {$httpCode}") . ")");
+// Email is still saved locally above even on a network failure here, so a
+// retry later (or the next automatic usage report) doesn't lose it.
+respond(false, "Couldn't reach the license server right now - your email is saved and registration will retry automatically. (" . ($curlError ?: "HTTP {$httpCode}") . ")");

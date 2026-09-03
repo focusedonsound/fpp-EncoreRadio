@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # Encore Radio - premium feature gate (Spotify, multi-source rotation).
 #
-# PLACEHOLDER SERVER: LICENSE_SERVER_BASE below is not a real endpoint yet
-# (M5 - a Cloudflare Worker - hasn't been built). Every call to it is
-# wrapped to fail soft (log + continue) rather than hard-block premium
-# features just because the server doesn't exist yet. Swap this one
-# constant once M5 ships; nothing else in this script should need to
-# change.
+# M5's license server (see fpp-EncoreRadio-license-server repo). Every
+# call to it is still wrapped to fail soft (log + continue) rather than
+# hard-block premium features on a network hiccup or the server being
+# briefly down - that's intentional, not a leftover from when this was a
+# placeholder.
 #
 # Trial: 10 cumulative hours of PREMIUM playback (not calendar time - see
 # build plan for why usage-based beats calendar-based). No license key ->
@@ -21,7 +20,7 @@
 
 set -uo pipefail
 
-LICENSE_SERVER_BASE="https://license.focusedonsound.example/api"  # PLACEHOLDER - see header comment
+LICENSE_SERVER_BASE="https://encoreradio-license.nscilingo.workers.dev/api"
 CFG_FILE="/home/fpp/media/config/encoreradio.json"
 LOG_FILE="/home/fpp/media/logs/EncoreRadio.log"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
