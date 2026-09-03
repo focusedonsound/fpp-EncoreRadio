@@ -22,11 +22,11 @@ later milestones — see `docs/` (added as those land) for details.
   when your show ends, one calling **Encore Radio - Stop** for when you want
   streaming to end (e.g. overnight).
 - Each backend (TuneIn's direct stream, or Pianobar for Pandora) feeds a
-  small local relay. Playback then goes through whichever path your FPP
-  version supports: FPP 10.x's native `Play Media` Stream Slot command, or
-  FPP 9.x's PulseAudio sink (the same audio path
+  small local relay. Playback goes through PulseAudio on both FPP 9.x
+  (native) and FPP 10.x (via PipeWire's pulse-compat layer) - the same
+  audio path
   [Announcement Assistant](https://github.com/focusedonsound/fpp-AnnouncementAssistant)
-  already knows how to duck).
+  already knows how to duck.
 
 ## Requirements
 

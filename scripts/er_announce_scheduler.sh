@@ -18,9 +18,49 @@ set -uo pipefail
 
 CFG_FILE="/home/fpp/media/config/encoreradio.json"
 LOG_FILE="/home/fpp/media/logs/EncoreRadio.log"
+STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
+SELF_DUCK_PCT=25
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [announce] $*" >> "$LOG_FILE"; }
+
+# On FPP 9.x, AA's ducking (aa_duck_overlay_pulse.sh) enumerates every active
+# PulseAudio sink-input generically, so it reaches our stream automatically.
+# On FPP 10.x, AA's ducking (aa_duck_overlay_pipewire.sh) instead calls
+# "Set Slot Volume" on FPP's own Stream Slot 1 - confirmed on real hardware
+# that this does NOT touch our stream at all (we never occupy a Stream Slot;
+# our sink-input volume stayed at 100% for the full duration of a real AA
+# Play call). So on 10.x we have to duck ourselves around the call instead.
+fpp10_stream_slots_active() {
+    local code
+    code="$(curl -s -m 3 -o /dev/null -w '%{http_code}' \
+        "http://localhost/api/command/Media%20Slot%20Status" 2>/dev/null || echo 000)"
+    [[ "$code" == "200" ]]
+}
+
+our_sink_input_index() {
+    local pid
+    pid="$(cat "${STATE_DIR}/playback.pid" 2>/dev/null || echo "")"
+    [[ -z "$pid" ]] && return
+    pactl -f json list sink-inputs 2>/dev/null | python3 -c "
+import json, sys
+try:
+    for si in json.load(sys.stdin):
+        if str(si.get('properties', {}).get('application.process.id', '')) == '$pid':
+            print(si['index'])
+            break
+except Exception:
+    pass
+" 2>/dev/null
+}
+
+set_our_volume() {
+    local pct="$1"
+    local idx
+    idx="$(our_sink_input_index)"
+    [[ -z "$idx" ]] && return
+    pactl set-sink-input-volume "$idx" "${pct}%" 2>/dev/null || true
+}
 
 cfg_json() {
     python3 -c "
@@ -34,6 +74,14 @@ except Exception:
 
 fire_announcement() {
     local slot="$1"
+    local self_ducked=no
+
+    if fpp10_stream_slots_active; then
+        log "FPP 10.x detected - self-ducking our stream to ${SELF_DUCK_PCT}% (AA's own duck won't reach it)"
+        set_our_volume "$SELF_DUCK_PCT"
+        self_ducked=yes
+    fi
+
     log "Firing Announcement Assistant slot=$slot"
     # FPP's /api/command endpoint blocks until the command finishes running,
     # not just until it starts - confirmed on real hardware, where AA's own
@@ -41,11 +89,24 @@ fire_announcement() {
     # here logged a false "failed" warning even though AA completed fine.
     # 30s covers any reasonably long announcement clip; if a real timeout
     # ever fires it's worth investigating, not silently ignoring, so this
-    # still logs a warning rather than swallowing curl's exit code.
+    # still logs a warning rather than swallowing curl's exit code. Because
+    # the call blocks until AA's own fade-up finishes, restoring our volume
+    # right after it returns lines up naturally with AA's announcement
+    # actually being done, no separate wait/timer needed.
     curl -s -m 30 -X POST "http://localhost/api/command" \
         -H "Content-Type: application/json" \
         -d "{\"command\":\"Announcement Assistant - Play\",\"args\":[\"${slot}\"]}" \
         >> "$LOG_FILE" 2>&1 || log "WARNING: AA Play command call failed"
+
+    if [[ "$self_ducked" == "yes" ]]; then
+        local restore_vol
+        restore_vol="$(python3 -c "
+import json
+try:    print(int(json.load(open('$CFG_FILE')).get('volume', 70)))
+except: print(70)
+" 2>/dev/null || echo 70)"
+        set_our_volume "$restore_vol"
+    fi
 }
 
 log "Announcement scheduler starting (pid=$$)"

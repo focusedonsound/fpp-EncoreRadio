@@ -2,8 +2,18 @@
 # FPP Command: Encore Radio - Start
 #
 # Reads the configured source, starts that backend (which feeds the local
-# relay), then plays the relay through whichever path FPP supports (10.x
-# Stream Slot / Play Media, or 9.x PulseAudio via ffplay).
+# relay), then plays the relay via PulseAudio.
+#
+# One playback path for both FPP versions: originally this branched on
+# FPP 10.x's "Play Media"/Stream Slot command vs. FPP 9.x's PulseAudio sink,
+# but real-hardware testing showed that command's actual C++ implementation
+# uses `filesrc location=...` (FalconChristmas/fpp
+# src/mediaoutput/GStreamerOut.cpp) - a local-file-only GStreamer source, not
+# a network-capable one - so it can never play our relay's http:// URL. FPP
+# 10.x's PipeWire stack ships its own pulse-compat socket
+# (pipewire-pulse), confirmed working end-to-end on a real 10.x box, so
+# plain PulseAudio playback (er_play_pulse.sh) works unchanged on both
+# versions and there's no need to detect which one we're on.
 
 set -euo pipefail
 
@@ -13,8 +23,6 @@ PLUGIN_DIR="$(dirname "$(dirname "$0")")"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [fpp-cmd-start] $*" >> "$LOG_FILE"; }
-
-source "${PLUGIN_DIR}/scripts/lib_backend_detect.sh"
 
 if [[ ! -f "$CFG_FILE" ]]; then
     log "ERROR: config not found: $CFG_FILE"
@@ -52,13 +60,7 @@ bash "$BACKEND_SCRIPT"
 # first.
 sleep 2
 
-if er_pipewire_slots_available; then
-    log "Backend=PipeWire/Stream Slots (FPP 10.x)"
-    bash "${PLUGIN_DIR}/scripts/er_play_pipewire.sh"
-else
-    log "Backend=PulseAudio (FPP 9.x)"
-    bash "${PLUGIN_DIR}/scripts/er_play_pulse.sh"
-fi
+bash "${PLUGIN_DIR}/scripts/er_play_pulse.sh"
 
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
 mkdir -p "$STATE_DIR" 2>/dev/null || true

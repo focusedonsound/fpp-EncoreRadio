@@ -33,17 +33,8 @@ if [[ -f "${STATE_DIR}/announce_scheduler.pid" ]]; then
     rm -f "${STATE_DIR}/announce_scheduler.pid"
 fi
 
-# FPP 10.x playback: stop whatever slot we recorded.
-if [[ -f "${STATE_DIR}/stream_slot" ]]; then
-    SLOT="$(cat "${STATE_DIR}/stream_slot" 2>/dev/null || echo 1)"
-    curl -s -m 5 -X POST "http://localhost/api/command" \
-        -H "Content-Type: application/json" \
-        -d "{\"command\":\"Stop Media Slot\",\"args\":[\"${SLOT}\"]}" \
-        >> "$LOG_FILE" 2>&1 || true
-    rm -f "${STATE_DIR}/stream_slot"
-fi
-
-# FPP 9.x playback: kill ffplay.
+# Playback: kill ffplay (same path on both FPP versions - see
+# er_cmd_start.sh for why there's no separate Stream Slot path).
 if [[ -f "${STATE_DIR}/playback.pid" ]]; then
     kill "$(cat "${STATE_DIR}/playback.pid" 2>/dev/null)" 2>/dev/null || true
     rm -f "${STATE_DIR}/playback.pid"
