@@ -82,6 +82,13 @@ install_raspotify_if_needed() {
   # package for Raspberry Pi - a proper .deb, not a random curl|sh script.
   if command -v librespot >/dev/null 2>&1 || dpkg -s raspotify >/dev/null 2>&1; then
     log "Raspotify/librespot already installed."
+    # Still needs enabling/starting even when the package is already
+    # present - fpp_uninstall.sh deliberately disables (but doesn't
+    # remove) the service, so a plain reinstall must re-enable it or
+    # Spotify silently stays broken after an uninstall/reinstall cycle
+    # (found via real-hardware testing).
+    systemctl enable raspotify.service 2>&1 || true
+    systemctl start raspotify.service 2>&1 || true
     return 0
   fi
 
