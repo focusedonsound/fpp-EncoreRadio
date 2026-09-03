@@ -48,34 +48,120 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 ?>
 
 <style>
-  #er-tour-highlight {
-    position: fixed; z-index: 10050; pointer-events: none;
-    border: 2px solid #0d6efd; border-radius: 6px;
-    box-shadow: 0 0 0 4000px rgba(0,0,0,0.45);
-    transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s;
-  }
-  #er-tour-popup {
-    position: fixed; z-index: 10051; max-width: 340px; width: calc(100% - 24px);
-  }
-  #er-tour-arrow {
-    position: fixed; z-index: 10051; width: 0; height: 0;
-    border-left: 9px solid transparent; border-right: 9px solid transparent;
-  }
-  .er-tour-arrow-below { border-top: 9px solid var(--bs-body-bg, #fff); }
-  .er-tour-arrow-above { border-bottom: 9px solid var(--bs-body-bg, #fff); }
+/* Encore Radio - explicit colours for FPP 9.x / 10.x compatibility
+   (same reasoning as Announcement Assistant / HDMI CEC+: FPP 9.x's
+   Bootstrap 4 dark theme renders btn-outline-light as white-on-white,
+   so buttons here are hardcoded to look the same on every FPP version). */
+.er-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  padding: .35rem .8rem;
+  font-size: .875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  border: 1px solid #3a7fc1;
+  border-radius: .3rem;
+  text-decoration: none !important;
+  background-color: #1a6eb5;
+  color: #fff !important;
+  transition: background-color .15s ease-in-out, border-color .15s;
+  vertical-align: middle;
+}
+.er-btn:hover, .er-btn:focus {
+  background-color: #155a94;
+  border-color: #0e4370;
+  color: #fff !important;
+  text-decoration: none !important;
+}
+.er-btn-secondary {
+  background-color: #6c757d;
+  border-color: #6c757d;
+}
+.er-btn-secondary:hover, .er-btn-secondary:focus {
+  background-color: #5c636a;
+  border-color: #565e64;
+}
+.er-btn-success {
+  background-color: #198754;
+  border-color: #146c43;
+}
+.er-btn-success:hover, .er-btn-success:focus {
+  background-color: #146c43;
+  border-color: #0f5132;
+}
+.er-btn-danger {
+  background-color: #b02a37;
+  border-color: #842029;
+}
+.er-btn-danger:hover, .er-btn-danger:focus {
+  background-color: #842029;
+  border-color: #6a1a20;
+}
+.er-btn:disabled, .er-btn.disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.er-pill {
+  display: inline-flex; align-items: center; gap: .3rem;
+  padding: .25rem .65rem; border-radius: 999px; font-size: .8rem; font-weight: 600;
+  color: #fff; white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .er-page-header { flex-wrap: wrap !important; row-gap: .5rem; }
+  .er-page-header > *:first-child { flex: 1 1 100%; }
+  .er-link-row { flex-wrap: wrap; width: 100%; }
+}
+
+#er-tour-highlight {
+  position: fixed; z-index: 10050; pointer-events: none;
+  border: 2px solid #1a6eb5; border-radius: 6px;
+  box-shadow: 0 0 0 4000px rgba(0,0,0,0.45);
+  transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s;
+}
+#er-tour-popup {
+  position: fixed; z-index: 10051; max-width: 340px; width: calc(100% - 24px);
+  background-color: #fff; color: #212529; border: 1px solid #1a6eb5; border-radius: .4rem;
+  box-shadow: 0 .5rem 1rem rgba(0,0,0,.35);
+}
+#er-tour-arrow {
+  position: fixed; z-index: 10051; width: 0; height: 0;
+  border-left: 9px solid transparent; border-right: 9px solid transparent;
+}
+.er-tour-arrow-below { border-top: 9px solid #fff; }
+.er-tour-arrow-above { border-bottom: 9px solid #fff; }
 </style>
 
-<h1 class="title">Encore Radio</h1>
-<p>
-  Keep the show's radio station going after the lights go dark. Pick a
-  source below - TuneIn or Pandora are free; Spotify (your own custom
-  playlist) is a premium feature. Add FPP Schedule entries calling
-  <strong>Encore Radio - Start</strong> / <strong>Encore Radio - Stop</strong>
-  for your after-hours window, and you're set.
+<div class="d-flex justify-content-between align-items-center mb-2 er-page-header">
+  <h2 class="mb-0"><i class="fas fa-fw fa-broadcast-tower"></i> Encore Radio</h2>
+  <div class="d-flex align-items-center gap-2 er-link-row">
+    <a href="https://github.com/focusedonsound/fpp-EncoreRadio"
+       target="_blank" rel="noopener noreferrer"
+       class="er-btn">
+      <i class="fas fa-fw fa-code-branch"></i> GitHub Repo
+    </a>
+    <a href="https://github.com/focusedonsound/fpp-EncoreRadio/issues"
+       target="_blank" rel="noopener noreferrer"
+       class="er-btn er-btn-secondary">
+      <i class="fas fa-fw fa-bug"></i> Report an Issue
+    </a>
+  </div>
+</div>
+<p class="text-muted">
+  Keep the show's radio station feel going after the lights go dark.
+  <strong>TuneIn</strong> and <strong>Pandora</strong> are free; a custom
+  <strong>Spotify</strong> playlist is a premium feature. Add FPP Schedule
+  entries calling <strong>Encore Radio - Start</strong> /
+  <strong>Encore Radio - Stop</strong> for your after-hours window, and
+  you're set.
 </p>
 
 <p>
-  <a href="#" id="er-onboarding-replay" class="small me-2">Replay walkthrough</a>
+  <a href="#" id="er-onboarding-replay" class="small me-2"><i class="fas fa-fw fa-circle-play"></i> Replay walkthrough</a>
   <label class="small text-muted">
     <input type="checkbox" name="ui_onboardingTourEnabled" id="er-onboardingTourEnabled" form="erForm"
            <?php echo $cfg["ui"]["onboardingTourEnabled"] ? "checked" : ""; ?> />
@@ -85,248 +171,302 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
 <form id="erForm" onsubmit="return false;">
 
-  <fieldset id="er-fieldset-source" style="margin-bottom:20px;">
-    <legend>Source</legend>
+  <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-source">
+    <div class="fppTableContents">
+      <table class="fppSelectableRowTable" style="width:100%;">
+        <thead>
+          <tr><th colspan="2" style="padding:8px;"><i class="fas fa-fw fa-satellite-dish"></i> Source</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="2" style="padding:8px;">
+              <div class="d-flex gap-3 flex-wrap">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="source" id="er-source-tunein" value="tunein" <?php echo $cfg["source"] === "tunein" ? "checked" : ""; ?> />
+                  <label class="form-check-label" for="er-source-tunein"><strong>TuneIn</strong> <span class="text-muted small">- free</span></label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="source" id="er-source-pandora" value="pandora" <?php echo $cfg["source"] === "pandora" ? "checked" : ""; ?> />
+                  <label class="form-check-label" for="er-source-pandora"><strong>Pandora</strong> <span class="text-muted small">- free</span></label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="source" id="er-source-spotify" value="spotify" <?php echo $cfg["source"] === "spotify" ? "checked" : ""; ?> />
+                  <label class="form-check-label" for="er-source-spotify"><strong>Spotify</strong> <span class="text-muted small">- premium</span></label>
+                </div>
+              </div>
+            </td>
+          </tr>
 
-    <label style="margin-right:20px;">
-      <input type="radio" name="source" value="tunein" <?php echo $cfg["source"] === "tunein" ? "checked" : ""; ?> />
-      TuneIn
-    </label>
-    <label style="margin-right:20px;">
-      <input type="radio" name="source" value="pandora" <?php echo $cfg["source"] === "pandora" ? "checked" : ""; ?> />
-      Pandora
-    </label>
-    <label>
-      <input type="radio" name="source" value="spotify" <?php echo $cfg["source"] === "spotify" ? "checked" : ""; ?> />
-      Spotify (premium)
-    </label>
+          <tr id="er-tunein-section" style="display:none;">
+            <td colspan="2" style="padding:8px;">
+              <div class="d-flex gap-2 flex-wrap align-items-center">
+                <input type="text" id="er-tunein-search" class="form-control form-control-sm" placeholder="Search TuneIn stations..." style="width:100%; max-width:320px;" />
+                <button type="button" class="er-btn" onclick="erSearchTuneIn()"><i class="fas fa-fw fa-magnifying-glass"></i> Search</button>
+              </div>
+              <div id="er-tunein-results" class="mt-2"></div>
+              <div class="mt-2">
+                Selected station: <strong id="er-tunein-selected-name"><?php echo htmlspecialchars($cfg["tunein"]["stationName"]); ?></strong>
+              </div>
+              <input type="hidden" name="tunein_stationId" id="er-tunein-stationId" value="<?php echo htmlspecialchars($cfg["tunein"]["stationId"]); ?>" />
+              <input type="hidden" name="tunein_stationName" id="er-tunein-stationName" value="<?php echo htmlspecialchars($cfg["tunein"]["stationName"]); ?>" />
+              <input type="hidden" name="tunein_streamUrl" id="er-tunein-streamUrl" value="<?php echo htmlspecialchars($cfg["tunein"]["streamUrl"]); ?>" />
+            </td>
+          </tr>
 
-    <div id="er-tunein-section" style="margin-top:14px; display:none;">
-      <div>
-        <input type="text" id="er-tunein-search" placeholder="Search TuneIn stations..." style="width:100%; max-width:320px;" />
-        <button type="button" class="buttons btn-outline-primary" onclick="erSearchTuneIn()">Search</button>
-      </div>
-      <div id="er-tunein-results" style="margin-top:8px;"></div>
-      <div style="margin-top:8px;">
-        Selected station:
-        <strong id="er-tunein-selected-name"><?php echo htmlspecialchars($cfg["tunein"]["stationName"]); ?></strong>
-      </div>
-      <input type="hidden" name="tunein_stationId" id="er-tunein-stationId" value="<?php echo htmlspecialchars($cfg["tunein"]["stationId"]); ?>" />
-      <input type="hidden" name="tunein_stationName" id="er-tunein-stationName" value="<?php echo htmlspecialchars($cfg["tunein"]["stationName"]); ?>" />
-      <input type="hidden" name="tunein_streamUrl" id="er-tunein-streamUrl" value="<?php echo htmlspecialchars($cfg["tunein"]["streamUrl"]); ?>" />
-    </div>
+          <tr id="er-pandora-section" style="display:none;">
+            <td colspan="2" style="padding:8px;">
+              <table style="width:100%; max-width:520px;">
+                <tr>
+                  <td class="py-1">Pandora Username</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="pandora_username" value="<?php echo htmlspecialchars($cfg["pandora"]["username"]); ?>" /></td>
+                </tr>
+                <tr>
+                  <td class="py-1">Pandora Password</td>
+                  <td class="py-1">
+                    <div class="d-flex gap-2 align-items-center">
+                      <input type="password" class="form-control form-control-sm" name="pandora_password" id="er-pandora-password"
+                             value="<?php echo $cfg["pandora"]["password"] !== "" ? "__unchanged__" : ""; ?>" />
+                      <button type="button" class="er-btn er-btn-secondary" onclick="erTogglePassword()"><i class="fas fa-fw fa-eye"></i> Show</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-1">Station ID</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="pandora_stationId" value="<?php echo htmlspecialchars($cfg["pandora"]["stationId"]); ?>" /></td>
+                </tr>
+                <tr>
+                  <td class="py-1">Station Name (label only)</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="pandora_stationName" value="<?php echo htmlspecialchars($cfg["pandora"]["stationName"]); ?>" /></td>
+                </tr>
+              </table>
+              <p class="small text-muted mt-2 mb-0">
+                <i class="fas fa-fw fa-circle-info"></i>
+                Station ID is the number from your Pandora station's URL. Pianobar
+                prints available station IDs to the Encore Radio log on first login
+                if you're not sure which to use.
+              </p>
+            </td>
+          </tr>
 
-    <div id="er-pandora-section" style="margin-top:14px; display:none;">
-      <table class="fppTable" style="width:100%; max-width:500px;">
-        <tr>
-          <td>Pandora Username</td>
-          <td><input type="text" name="pandora_username" value="<?php echo htmlspecialchars($cfg["pandora"]["username"]); ?>" style="width:100%;" /></td>
-        </tr>
-        <tr>
-          <td>Pandora Password</td>
-          <td>
-            <input type="password" name="pandora_password" id="er-pandora-password"
-                   value="<?php echo $cfg["pandora"]["password"] !== "" ? "__unchanged__" : ""; ?>"
-                   style="width:85%;" />
-            <button type="button" class="buttons btn-outline-secondary" onclick="erTogglePassword()">Show</button>
-          </td>
-        </tr>
-        <tr>
-          <td>Station ID</td>
-          <td><input type="text" name="pandora_stationId" value="<?php echo htmlspecialchars($cfg["pandora"]["stationId"]); ?>" style="width:100%;" /></td>
-        </tr>
-        <tr>
-          <td>Station Name (label only)</td>
-          <td><input type="text" name="pandora_stationName" value="<?php echo htmlspecialchars($cfg["pandora"]["stationName"]); ?>" style="width:100%;" /></td>
-        </tr>
+          <tr id="er-spotify-section" style="display:none;">
+            <td colspan="2" style="padding:8px;">
+              <?php if (!$raspotifyInstalled): ?>
+                <p class="text-danger">
+                  <i class="fas fa-fw fa-triangle-exclamation"></i>
+                  Raspotify (the Spotify Connect client this plugin uses) wasn't
+                  installed successfully - check the install log. Your device's
+                  processor architecture may not be supported.
+                </p>
+              <?php endif; ?>
+
+              <p class="small text-muted">
+                Spotify needs two separate one-time setup steps:
+                <strong>1)</strong> connect your own Spotify Developer App below (so
+                Encore Radio can search your playlists and start playback), and
+                <strong>2)</strong> pair this device once via your phone's Spotify
+                app on the same network (open Spotify, tap the device/Connect icon,
+                and select
+                "<code><?php echo htmlspecialchars($cfg["spotify"]["deviceName"] ?: '(set after install)'); ?></code>").
+                Neither step is needed again after that.
+              </p>
+
+              <table style="width:100%; max-width:600px;">
+                <tr>
+                  <td class="py-1">Spotify Client ID</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="spotify_clientId" value="<?php echo htmlspecialchars($cfg["spotify"]["clientId"]); ?>" /></td>
+                </tr>
+                <tr>
+                  <td class="py-1">Spotify Client Secret</td>
+                  <td class="py-1">
+                    <div class="d-flex gap-2 align-items-center">
+                      <input type="password" class="form-control form-control-sm" name="spotify_clientSecret" id="er-spotify-secret"
+                             value="<?php echo $cfg["spotify"]["clientSecret"] !== "" ? "__unchanged__" : ""; ?>" />
+                      <button type="button" class="er-btn er-btn-secondary" onclick="erToggleSpotifySecret()"><i class="fas fa-fw fa-eye"></i> Show</button>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              <p class="small text-muted">
+                Create a free app at
+                <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a>,
+                then add this exact Redirect URI to it:
+                <code id="er-spotify-redirect-uri"></code>
+              </p>
+
+              <div class="d-flex align-items-center gap-2 mt-2 mb-2 flex-wrap">
+                <button type="button" class="er-btn" onclick="erSave().then(erConnectSpotify)">
+                  <i class="fas fa-fw fa-link"></i> Save &amp; Connect to Spotify
+                </button>
+                <span class="er-pill" style="background-color:<?php echo $spotifyConnected ? '#198754' : '#6c757d'; ?>;">
+                  <i class="fas fa-fw fa-circle fa-2xs"></i>
+                  <?php echo $spotifyConnected ? "Connected" : "Not connected yet"; ?>
+                </span>
+              </div>
+
+              <?php if ($spotifyConnected): ?>
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                  <input type="text" id="er-spotify-search" class="form-control form-control-sm" placeholder="Search your playlists..." style="width:100%; max-width:320px;" />
+                  <button type="button" class="er-btn" onclick="erSearchSpotify()"><i class="fas fa-fw fa-magnifying-glass"></i> Search</button>
+                </div>
+                <div id="er-spotify-results" class="mt-2"></div>
+                <div class="mt-2">
+                  Selected playlist: <strong id="er-spotify-selected-name"><?php echo htmlspecialchars($cfg["spotify"]["playlistName"]); ?></strong>
+                </div>
+              <?php endif; ?>
+              <input type="hidden" name="spotify_playlistUri" id="er-spotify-playlistUri" value="<?php echo htmlspecialchars($cfg["spotify"]["playlistUri"]); ?>" />
+              <input type="hidden" name="spotify_playlistName" id="er-spotify-playlistName" value="<?php echo htmlspecialchars($cfg["spotify"]["playlistName"]); ?>" />
+            </td>
+          </tr>
+        </tbody>
       </table>
-      <p class="small text-muted">
-        Station ID is the number from your Pandora station's URL. Pianobar
-        prints available station IDs to the Encore Radio log on first login
-        if you're not sure which to use.
-      </p>
     </div>
+  </div>
 
-    <div id="er-spotify-section" style="margin-top:14px; display:none;">
-      <?php if (!$raspotifyInstalled): ?>
-        <p class="text-danger">
-          Raspotify (the Spotify Connect client this plugin uses) wasn't
-          installed successfully - check the install log. Your device's
-          processor architecture may not be supported.
-        </p>
-      <?php endif; ?>
-
-      <p class="small text-muted">
-        Spotify needs two separate one-time setup steps:
-        <strong>1)</strong> connect your own Spotify Developer App below (so
-        Encore Radio can search your playlists and start playback), and
-        <strong>2)</strong> pair this device once via your phone's Spotify
-        app on the same network (open Spotify, tap the device/Connect icon,
-        and select
-        "<code><?php echo htmlspecialchars($cfg["spotify"]["deviceName"] ?: '(set after install)'); ?></code>").
-        Neither step is needed again after that.
-      </p>
-
-      <table class="fppTable" style="width:100%; max-width:600px;">
-        <tr>
-          <td>Spotify Client ID</td>
-          <td><input type="text" name="spotify_clientId" value="<?php echo htmlspecialchars($cfg["spotify"]["clientId"]); ?>" style="width:100%;" /></td>
-        </tr>
-        <tr>
-          <td>Spotify Client Secret</td>
-          <td>
-            <input type="password" name="spotify_clientSecret" id="er-spotify-secret"
-                   value="<?php echo $cfg["spotify"]["clientSecret"] !== "" ? "__unchanged__" : ""; ?>"
-                   style="width:85%;" />
-            <button type="button" class="buttons btn-outline-secondary" onclick="erToggleSpotifySecret()">Show</button>
-          </td>
-        </tr>
+  <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-volume">
+    <div class="fppTableContents">
+      <table class="fppSelectableRowTable" style="width:100%;">
+        <thead>
+          <tr><th style="padding:8px;"><i class="fas fa-fw fa-volume-high"></i> Volume</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px;">
+              <input type="range" class="form-range" style="max-width:400px;" name="volume" id="er-volume" min="0" max="100" step="1"
+                     value="<?php echo (int)$cfg["volume"]; ?>"
+                     oninput="document.getElementById('er-volume-label').textContent = this.value" />
+              <span id="er-volume-label"><?php echo (int)$cfg["volume"]; ?></span>%
+            </td>
+          </tr>
+        </tbody>
       </table>
-      <p class="small text-muted">
-        Create a free app at
-        <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a>,
-        then add this exact Redirect URI to it:
-        <code id="er-spotify-redirect-uri"></code>
-      </p>
-
-      <div style="margin:10px 0;">
-        <button type="button" class="buttons btn-outline-primary" onclick="erSave().then(erConnectSpotify)">
-          Save &amp; Connect to Spotify
-        </button>
-        <span style="margin-left:10px;">
-          <?php echo $spotifyConnected ? "✅ Connected" : "Not connected yet"; ?>
-        </span>
-      </div>
-
-      <?php if ($spotifyConnected): ?>
-        <div>
-          <input type="text" id="er-spotify-search" placeholder="Search your playlists..." style="width:100%; max-width:320px;" />
-          <button type="button" class="buttons btn-outline-primary" onclick="erSearchSpotify()">Search</button>
-        </div>
-        <div id="er-spotify-results" style="margin-top:8px;"></div>
-        <div style="margin-top:8px;">
-          Selected playlist:
-          <strong id="er-spotify-selected-name"><?php echo htmlspecialchars($cfg["spotify"]["playlistName"]); ?></strong>
-        </div>
-      <?php endif; ?>
-      <input type="hidden" name="spotify_playlistUri" id="er-spotify-playlistUri" value="<?php echo htmlspecialchars($cfg["spotify"]["playlistUri"]); ?>" />
-      <input type="hidden" name="spotify_playlistName" id="er-spotify-playlistName" value="<?php echo htmlspecialchars($cfg["spotify"]["playlistName"]); ?>" />
     </div>
-  </fieldset>
+  </div>
 
-  <fieldset id="er-fieldset-volume" style="margin-bottom:20px;">
-    <legend>Volume</legend>
-    <input type="range" name="volume" id="er-volume" min="0" max="100" step="1"
-           value="<?php echo (int)$cfg["volume"]; ?>"
-           oninput="document.getElementById('er-volume-label').textContent = this.value" />
-    <span id="er-volume-label"><?php echo (int)$cfg["volume"]; ?></span>%
-  </fieldset>
-
-  <fieldset id="er-fieldset-announce" style="margin-bottom:20px;">
-    <legend>Announcements</legend>
-
-    <?php if (!$aaInstalled): ?>
-      <p class="text-muted">
-        Scheduled announcements aren't available - they require another
-        FPP plugin with a Play/Stop command compatible with this feature
-        to be installed first.
-      </p>
-    <?php else: ?>
-      <label>
-        <input type="checkbox" name="announce_enabled" value="1" <?php echo $cfg["announce"]["enabled"] ? "checked" : ""; ?> />
-        Play an Announcement Assistant slot during after-hours playback
-      </label>
-
-      <table class="fppTable" style="width:100%; max-width:600px; margin-top:10px;">
-        <tr>
-          <td>Slot</td>
-          <td>
-            <select name="announce_slot" style="width:100%;">
-              <option value="">-- select --</option>
-              <?php foreach ($aaSlots as $slot): ?>
-                <option value="<?php echo $slot["index"]; ?>" <?php echo ((string)$cfg["announce"]["slot"] === (string)$slot["index"]) ? "selected" : ""; ?>>
-                  <?php echo htmlspecialchars($slot["label"]); ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </td>
-        </tr>
-        <tr>
-          <td>Timing</td>
-          <td>
-            <label style="margin-right:16px;">
-              <input type="radio" name="announce_mode" value="cadence" <?php echo $cfg["announce"]["mode"] === "cadence" ? "checked" : ""; ?> onclick="erShowAnnounceMode()" />
-              Every N minutes
-            </label>
-            <label>
-              <input type="radio" name="announce_mode" value="times" <?php echo $cfg["announce"]["mode"] === "times" ? "checked" : ""; ?> onclick="erShowAnnounceMode()" />
-              Specific times
-            </label>
-          </td>
-        </tr>
-        <tr id="er-announce-cadence-row">
-          <td>Every</td>
-          <td>
-            <input type="number" name="announce_cadenceMinutes" min="1" step="1"
-                   value="<?php echo (int)$cfg["announce"]["cadenceMinutes"]; ?>" style="width:80px;" /> minutes
-          </td>
-        </tr>
-        <tr id="er-announce-times-row">
-          <td>Times (24h)</td>
-          <td>
-            <textarea name="announce_times" rows="3" style="width:100%;"
-                      placeholder="One per line, e.g. 22:15&#10;23:00&#10;23:45"><?php echo htmlspecialchars(implode("\n", $cfg["announce"]["times"])); ?></textarea>
-          </td>
-        </tr>
+  <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-announce">
+    <div class="fppTableContents">
+      <table class="fppSelectableRowTable" style="width:100%;">
+        <thead>
+          <tr><th colspan="2" style="padding:8px;"><i class="fas fa-fw fa-bullhorn"></i> Announcements</th></tr>
+        </thead>
+        <tbody>
+          <?php if (!$aaInstalled): ?>
+            <tr><td colspan="2" style="padding:8px;">
+              <p class="text-muted mb-0">
+                <i class="fas fa-fw fa-circle-info"></i>
+                Scheduled announcements aren't available - they require another
+                FPP plugin with a Play/Stop command compatible with this feature
+                to be installed first.
+              </p>
+            </td></tr>
+          <?php else: ?>
+            <tr><td colspan="2" style="padding:8px;">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="announce_enabled" id="er-announce-enabled" value="1" <?php echo $cfg["announce"]["enabled"] ? "checked" : ""; ?> />
+                <label class="form-check-label" for="er-announce-enabled">Play an Announcement Assistant slot during after-hours playback</label>
+              </div>
+            </td></tr>
+            <tr>
+              <td class="py-1" style="padding:8px; width:160px;">Slot</td>
+              <td class="py-1" style="padding:8px;">
+                <select name="announce_slot" class="form-control form-control-sm" style="max-width:320px;">
+                  <option value="">-- select --</option>
+                  <?php foreach ($aaSlots as $slot): ?>
+                    <option value="<?php echo $slot["index"]; ?>" <?php echo ((string)$cfg["announce"]["slot"] === (string)$slot["index"]) ? "selected" : ""; ?>>
+                      <?php echo htmlspecialchars($slot["label"]); ?>
+                    </option>
+                  <?php endforeach; ?>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td class="py-1" style="padding:8px;">Timing</td>
+              <td class="py-1" style="padding:8px;">
+                <div class="d-flex gap-3 flex-wrap">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="announce_mode" id="er-announce-mode-cadence" value="cadence" <?php echo $cfg["announce"]["mode"] === "cadence" ? "checked" : ""; ?> onclick="erShowAnnounceMode()" />
+                    <label class="form-check-label" for="er-announce-mode-cadence">Every N minutes</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="announce_mode" id="er-announce-mode-times" value="times" <?php echo $cfg["announce"]["mode"] === "times" ? "checked" : ""; ?> onclick="erShowAnnounceMode()" />
+                    <label class="form-check-label" for="er-announce-mode-times">Specific times</label>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            <tr id="er-announce-cadence-row">
+              <td class="py-1" style="padding:8px;">Every</td>
+              <td class="py-1" style="padding:8px;">
+                <div class="input-group input-group-sm" style="max-width:160px;">
+                  <input type="number" class="form-control form-control-sm" name="announce_cadenceMinutes" min="1" step="1" value="<?php echo (int)$cfg["announce"]["cadenceMinutes"]; ?>" />
+                  <span class="input-group-text">minutes</span>
+                </div>
+              </td>
+            </tr>
+            <tr id="er-announce-times-row">
+              <td class="py-1" style="padding:8px;">Times (24h)</td>
+              <td class="py-1" style="padding:8px;">
+                <textarea name="announce_times" class="form-control form-control-sm" rows="3" style="max-width:320px;"
+                          placeholder="One per line, e.g. 22:15&#10;23:00&#10;23:45"><?php echo htmlspecialchars(implode("\n", $cfg["announce"]["times"])); ?></textarea>
+              </td>
+            </tr>
+          <?php endif; ?>
+        </tbody>
       </table>
-    <?php endif; ?>
-  </fieldset>
-
-  <fieldset id="er-fieldset-license" style="margin-bottom:20px;">
-    <legend>License (Premium)</legend>
-
-    <?php if ($hasLicenseKey): ?>
-      <p>License key on file. Premium features (Spotify, multi-source rotation) are unlocked.</p>
-    <?php else: ?>
-      <p>
-        <strong><?php echo $trialHoursRemaining; ?> premium hours remaining</strong>
-        out of a 10-hour trial (only counts while Spotify is actually
-        playing - TuneIn and Pandora are always free and don't use any of
-        this).
-      </p>
-    <?php endif; ?>
-
-    <table class="fppTable" style="width:100%; max-width:500px;">
-      <tr>
-        <td>Email</td>
-        <td>
-          <input type="email" name="license_email" id="er-license-email"
-                 value="<?php echo htmlspecialchars($cfg["license"]["email"]); ?>" style="width:100%;" />
-        </td>
-      </tr>
-      <tr>
-        <td>License Key</td>
-        <td><input type="text" name="license_key" value="<?php echo htmlspecialchars($cfg["license"]["key"]); ?>" style="width:100%;" /></td>
-      </tr>
-    </table>
-    <div style="margin-top:8px;">
-      <button type="button" class="buttons btn-outline-primary" onclick="erSave().then(erRegisterLicense)">
-        Save &amp; Register
-      </button>
-      <span id="er-license-status" style="margin-left:10px;"></span>
     </div>
-    <p class="small text-muted">
-      Registering just lets us email you before your trial runs out and
-      issue a license key when you're ready - Encore Radio itself never
-      links to a purchase page (not allowed by the FPP plugin guidelines).
-    </p>
-  </fieldset>
+  </div>
 
-  <div id="er-save" style="margin-top:12px;">
-    <button type="button" class="buttons btn-outline-success" onclick="erSave()">Save</button>
-    <button type="button" class="buttons btn-outline-primary" onclick="erStart()">Start Now</button>
-    <button type="button" class="buttons btn-outline-secondary" onclick="erStop()">Stop</button>
-    <span id="erStatus" style="margin-left:10px;"></span>
+  <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-license">
+    <div class="fppTableContents">
+      <table class="fppSelectableRowTable" style="width:100%;">
+        <thead>
+          <tr><th colspan="2" style="padding:8px;"><i class="fas fa-fw fa-key"></i> License (Premium)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="2" style="padding:8px;">
+            <?php if ($hasLicenseKey): ?>
+              <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> License key on file. Premium features (Spotify, multi-source rotation) are unlocked.</p>
+            <?php else: ?>
+              <p class="mb-0">
+                <strong><?php echo $trialHoursRemaining; ?> premium hours remaining</strong>
+                out of a 10-hour trial (only counts while Spotify is actually
+                playing - TuneIn and Pandora are always free and don't use any of
+                this).
+              </p>
+            <?php endif; ?>
+          </td></tr>
+          <tr>
+            <td class="py-1" style="padding:8px; width:160px;">Email</td>
+            <td class="py-1" style="padding:8px;">
+              <input type="email" class="form-control form-control-sm" name="license_email" id="er-license-email" style="max-width:320px;" value="<?php echo htmlspecialchars($cfg["license"]["email"]); ?>" />
+            </td>
+          </tr>
+          <tr>
+            <td class="py-1" style="padding:8px;">License Key</td>
+            <td class="py-1" style="padding:8px;">
+              <input type="text" class="form-control form-control-sm" name="license_key" style="max-width:320px;" value="<?php echo htmlspecialchars($cfg["license"]["key"]); ?>" />
+            </td>
+          </tr>
+          <tr><td colspan="2" style="padding:8px;">
+            <button type="button" class="er-btn" onclick="erSave().then(erRegisterLicense)">
+              <i class="fas fa-fw fa-user-plus"></i> Save &amp; Register
+            </button>
+            <span id="er-license-status" class="ms-2"></span>
+            <p class="small text-muted mt-2 mb-0">
+              Registering just lets us email you before your trial runs out and
+              issue a license key when you're ready - Encore Radio itself never
+              links to a purchase page (not allowed by the FPP plugin guidelines).
+            </p>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="er-save" class="mb-3">
+    <button type="button" class="er-btn er-btn-success" onclick="erSave()"><i class="fas fa-fw fa-floppy-disk"></i> Save</button>
+    <button type="button" class="er-btn" onclick="erStart()"><i class="fas fa-fw fa-play"></i> Start Now</button>
+    <button type="button" class="er-btn er-btn-secondary" onclick="erStop()"><i class="fas fa-fw fa-stop"></i> Stop</button>
+    <span id="erStatus" class="ms-2"></span>
   </div>
 </form>
 
@@ -357,9 +497,9 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   function erShowSourceSection() {
     const source = document.querySelector('input[name="source"]:checked');
     const val = source ? source.value : "";
-    document.getElementById('er-tunein-section').style.display = (val === 'tunein') ? 'block' : 'none';
-    document.getElementById('er-pandora-section').style.display = (val === 'pandora') ? 'block' : 'none';
-    document.getElementById('er-spotify-section').style.display = (val === 'spotify') ? 'block' : 'none';
+    document.getElementById('er-tunein-section').style.display = (val === 'tunein') ? 'table-row' : 'none';
+    document.getElementById('er-pandora-section').style.display = (val === 'pandora') ? 'table-row' : 'none';
+    document.getElementById('er-spotify-section').style.display = (val === 'spotify') ? 'table-row' : 'none';
   }
   document.querySelectorAll('input[name="source"]').forEach(function (el) {
     el.addEventListener('change', erShowSourceSection);
@@ -398,7 +538,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     j.results.forEach(function (pl) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'buttons btn-outline-primary';
+      btn.className = 'er-btn';
       btn.style.display = 'block';
       btn.style.margin = '4px 0';
       btn.textContent = pl.name + ' (' + pl.trackCount + ' tracks)';
@@ -444,7 +584,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     j.results.forEach(function (station) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.className = 'buttons btn-outline-primary';
+      btn.className = 'er-btn';
       btn.style.display = 'block';
       btn.style.margin = '4px 0';
       btn.textContent = station.name;
@@ -549,16 +689,15 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     arrow.id = 'er-tour-arrow';
     var popup = document.createElement('div');
     popup.id = 'er-tour-popup';
-    popup.className = 'card shadow-lg border-primary';
     popup.innerHTML =
-      '<div class="card-body">' +
+      '<div style="padding:1rem;">' +
       '<div class="small text-muted mb-1" id="er-tour-step-of"></div>' +
       '<div class="fw-bold mb-1" id="er-tour-title"></div>' +
       '<div class="mb-2" id="er-tour-text"></div>' +
-      '<div class="d-flex justify-content-between">' +
-      '<button type="button" class="buttons btn-outline-secondary" id="er-tour-back">Back</button>' +
-      '<button type="button" class="buttons" id="er-tour-skip">Skip Tour</button>' +
-      '<button type="button" class="buttons btn-outline-primary" id="er-tour-next">Next</button>' +
+      '<div class="d-flex justify-content-between gap-2">' +
+      '<button type="button" class="er-btn er-btn-secondary" id="er-tour-back">Back</button>' +
+      '<button type="button" class="er-btn er-btn-secondary" id="er-tour-skip">Skip Tour</button>' +
+      '<button type="button" class="er-btn" id="er-tour-next">Next</button>' +
       '</div></div>';
     document.body.appendChild(hl);
     document.body.appendChild(arrow);
