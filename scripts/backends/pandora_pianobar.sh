@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Encore Radio - Pandora backend (free tier), via Pianobar.
+# Encore Radio - Pandora backend (premium tier), via Pianobar.
 #
 # Pianobar is a long-standing open-source headless Pandora client - the
 # same shape as librespot for Spotify: log in once (credentials live in
@@ -37,6 +37,18 @@ try:    print(json.load(open('$CFG_FILE')).get('pandora', {}).get('$1', ''))
 except: print('')
 " 2>/dev/null || echo ""
 }
+
+# The "&& GATE_RC=0 || GATE_RC=$?" form (not a plain assignment) matters
+# under `set -e`: a plain `VAR="$(cmd)"` assignment aborts the script
+# immediately on cmd's nonzero exit, before GATE_RC is ever captured or
+# the error below is logged - confirmed on real hardware, where a blocked
+# gate exited correctly but silently, with no "ERROR:" line ever written.
+GATE_MSG="$(bash "${HERE}/er_premium_gate.sh" check)" && GATE_RC=0 || GATE_RC=$?
+if [[ "$GATE_RC" -ne 0 ]]; then
+    log "ERROR: $GATE_MSG"
+    exit 1
+fi
+log "Premium gate: $GATE_MSG"
 
 USERNAME="$(cfg username)"
 PASSWORD="$(cfg password)"
@@ -87,6 +99,7 @@ start_pianobar() {
 
 ensure_null_sink
 start_pianobar
+bash "${HERE}/er_track_usage.sh" start
 
 log "Starting relay from sink monitor: ${SINK_NAME}.monitor"
 "${HERE}/er_relay.sh" start pulse-source "${SINK_NAME}.monitor"

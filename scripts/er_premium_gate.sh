@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Encore Radio - premium feature gate (Spotify, multi-source rotation).
+# Encore Radio - premium feature gate (Pandora, Spotify, multi-source rotation).
 #
 # M5's license server (see fpp-EncoreRadio-license-server repo). Every
 # call to it is still wrapped to fail soft (log + continue) rather than
@@ -93,7 +93,7 @@ cmd_check() {
         exit 0
     fi
 
-    echo "Trial hours used up. Register and enter a license key on the Encore Radio page to keep using Spotify."
+    echo "Trial hours used up. Register and enter a license key on the Encore Radio page to keep using Pandora or Spotify."
     exit 1
 }
 

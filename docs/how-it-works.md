@@ -10,7 +10,7 @@ Every source converges on PulseAudio:
 - **Pandora**: [Pianobar](https://github.com/PromyLOPh/pianobar) plays into
   a dedicated PulseAudio null-sink, whose monitor feeds the same local
   relay.
-- **Spotify** (premium): [Raspotify](https://github.com/dtcooper/raspotify)
+- **Spotify** (premium, along with Pandora): [Raspotify](https://github.com/dtcooper/raspotify)
   runs as its own permanent system service (not tied to Encore Radio's
   Start/Stop), configured to output directly to PulseAudio. No relay
   involved - Encore Radio just tells the Spotify Web API to start playback
@@ -40,10 +40,10 @@ this, the announcement would have played over the stream at full volume).
 
 ## Free vs. premium
 
-TuneIn and Pandora, a single source, and basic announcement scheduling are
-always free, no registration. Spotify (a custom playlist, not just a
-station) gets a 10-cumulative-hour trial, then requires registering an
-email and entering a license key - see `docs/configuration.md`.
+TuneIn, a single source, and basic announcement scheduling are always
+free, no registration. Pandora and Spotify (custom playlists) get a
+10-cumulative-hour trial, then require registering an email and entering
+a license key - see `docs/configuration.md`.
 
 ## License gating
 

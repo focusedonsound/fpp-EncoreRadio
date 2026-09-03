@@ -33,8 +33,12 @@ except: print('')
 " 2>/dev/null || echo ""
 }
 
-GATE_MSG="$(bash "${HERE}/er_premium_gate.sh" check)"
-GATE_RC=$?
+# The "&& GATE_RC=0 || GATE_RC=$?" form (not a plain assignment) matters
+# under `set -e`: a plain `VAR="$(cmd)"` assignment aborts the script
+# immediately on cmd's nonzero exit, before GATE_RC is ever captured or
+# the error below is logged - confirmed on real hardware, where a blocked
+# gate exited correctly but silently, with no "ERROR:" line ever written.
+GATE_MSG="$(bash "${HERE}/er_premium_gate.sh" check)" && GATE_RC=0 || GATE_RC=$?
 if [[ "$GATE_RC" -ne 0 ]]; then
     log "ERROR: $GATE_MSG"
     exit 1

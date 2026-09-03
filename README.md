@@ -1,16 +1,16 @@
 # 📻 Encore Radio — After-Hours Streaming for Falcon Player
 
 Keep your show's "radio station" feel going after the lights go dark.
-Encore Radio streams TuneIn stations and Pandora (free) or a custom Spotify
-playlist (premium) during your after-hours window, and can trigger
+Encore Radio streams TuneIn stations (free) or Pandora and a custom
+Spotify playlist (premium) during your after-hours window, and can trigger
 [Announcement Assistant](https://github.com/focusedonsound/fpp-AnnouncementAssistant)
 on a schedule for radio-station-style announcements ("Thanks for tuning in!").
 
 ## Status
 
-Feature-complete: free-tier TuneIn/Pandora playback, Announcement
-Assistant integration, Spotify (premium) via Raspotify + your own Spotify
-Developer App, trial-hour/license gating against a small
+Feature-complete: free TuneIn playback, premium Pandora/Spotify (Spotify
+via Raspotify + your own Spotify Developer App), Announcement
+Assistant integration, trial-hour/license gating against a small
 [license server](https://github.com/focusedonsound/fpp-EncoreRadio-license-server),
 and a first-run guided walkthrough on the plugin page. Verified on real
 FPP 9.5 and 10.0 hardware end-to-end, except the Spotify OAuth/pairing/

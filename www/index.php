@@ -153,8 +153,8 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 </div>
 <p class="text-muted">
   Keep the show's radio station feel going after the lights go dark.
-  <strong>TuneIn</strong> and <strong>Pandora</strong> are free; a custom
-  <strong>Spotify</strong> playlist is a premium feature. Add FPP Schedule
+  <strong>TuneIn</strong> is free; <strong>Pandora</strong> and
+  <strong>Spotify</strong> are premium features. Add FPP Schedule
   entries calling <strong>Encore Radio - Start</strong> /
   <strong>Encore Radio - Stop</strong> for your after-hours window, and
   you're set.
@@ -187,7 +187,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                 </div>
                 <div class="form-check">
                   <input class="form-check-input" type="radio" name="source" id="er-source-pandora" value="pandora" <?php echo $cfg["source"] === "pandora" ? "checked" : ""; ?> />
-                  <label class="form-check-label" for="er-source-pandora"><strong>Pandora</strong> <span class="text-muted small">- free</span></label>
+                  <label class="form-check-label" for="er-source-pandora"><strong>Pandora</strong> <span class="text-muted small">- premium</span></label>
                 </div>
                 <div class="form-check">
                   <input class="form-check-input" type="radio" name="source" id="er-source-spotify" value="spotify" <?php echo $cfg["source"] === "spotify" ? "checked" : ""; ?> />
@@ -424,12 +424,12 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
         <tbody>
           <tr><td colspan="2" style="padding:8px;">
             <?php if ($hasLicenseKey): ?>
-              <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> License key on file. Premium features (Spotify, multi-source rotation) are unlocked.</p>
+              <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> License key on file. Premium features (Pandora, Spotify, multi-source rotation) are unlocked.</p>
             <?php else: ?>
               <p class="mb-0">
                 <strong><?php echo $trialHoursRemaining; ?> premium hours remaining</strong>
-                out of a 10-hour trial (only counts while Spotify is actually
-                playing - TuneIn and Pandora are always free and don't use any of
+                out of a 10-hour trial (only counts while Pandora or Spotify are
+                actually playing - TuneIn is always free and doesn't use any of
                 this).
               </p>
             <?php endif; ?>
@@ -642,9 +642,9 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     {
       selector: '#er-fieldset-source',
       title: 'Pick a Source',
-      text: 'TuneIn and Pandora are free - just pick a station/genre. ' +
-        'Spotify lets you play your own custom playlist, which is the ' +
-        'premium feature (10 free trial hours, then a license key).'
+      text: 'TuneIn is free - just pick a station. Pandora (a genre/artist ' +
+        'station) and Spotify (your own custom playlist) are both premium ' +
+        'features - 10 free trial hours, then a license key.'
     },
     {
       selector: '#er-fieldset-volume',
@@ -664,7 +664,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     {
       selector: '#er-fieldset-license',
       title: 'License (Premium)',
-      text: 'Tracks your 10-hour Spotify trial (TuneIn/Pandora never count ' +
+      text: 'Tracks your 10-hour Pandora/Spotify trial (TuneIn never counts ' +
         'against it). Register your email so we can reach you before it ' +
         'runs out, and enter a license key here once you have one - ' +
         'nothing on this page ever links to a purchase page.'

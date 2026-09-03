@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Encore Radio - premium (Spotify) usage-time tracking.
+# Encore Radio - premium (Pandora, Spotify) usage-time tracking.
 #
 # Usage:
 #   er_track_usage.sh start     - call when premium playback actually begins

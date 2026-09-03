@@ -49,12 +49,12 @@ and select the device name shown on the Encore Radio page from the
 Connect/devices list. Also confirm `raspotify.service` is actually running
 (`systemctl status raspotify.service`).
 
-## Spotify: playback works but stops after the trial
+## Pandora/Spotify: playback works but stops after the trial
 
-Expected - Spotify is the premium tier, gated behind a 10-cumulative-hour
-trial (or a valid license key). Register on the Encore Radio page and
-enter a license key once you have one. TuneIn and Pandora are unaffected;
-they're never gated.
+Expected - Pandora and Spotify are both premium, gated behind a shared
+10-cumulative-hour trial (or a valid license key). Register on the Encore
+Radio page and enter a license key once you have one. TuneIn is
+unaffected; it's never gated.
 
 ## Relay port already in use / stale process
 

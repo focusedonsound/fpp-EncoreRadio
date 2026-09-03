@@ -50,7 +50,7 @@ ensure_dir() {
 install_pkgs_if_missing() {
   local missing=0
   # ffmpeg: local relay + TuneIn/Pandora re-streaming
-  # pianobar: headless Pandora client (free-tier backend)
+  # pianobar: headless Pandora client (premium-tier backend)
   # pulseaudio/pulseaudio-utils/libasound2-plugins: FPP 9.x playback path -
   # NOT installed by FPP itself by default (confirmed on a fresh v9.5 test
   # box - only libpulse0 client libs are present, no server), so this
@@ -323,8 +323,8 @@ post_install_notes() {
 [$PLUGIN_ID] Install complete.
 
 Next steps:
-  1) Open the "Encore Radio" page in the FPP menu and pick a free-tier source
-     (TuneIn or Pandora).
+  1) Open the "Encore Radio" page in the FPP menu and pick a source
+     (TuneIn is free; Pandora and Spotify are premium).
   2) Add two FPP Schedule entries: one calling "Encore Radio - Start" for
      when your show ends, and one calling "Encore Radio - Stop" for when
      you want streaming to end (e.g. overnight).
