@@ -22,7 +22,7 @@ function defaultConfig() {
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
-    "license" => ["email" => "", "key" => "", "trialHoursUsed" => 0],
+    "license" => ["email" => "", "key" => "", "trialSecondsUsed" => 0],
   ];
 }
 
@@ -40,8 +40,6 @@ if (file_exists($configFile)) {
   if (is_array($j)) $cfg = array_replace_recursive($cfg, $j);
 }
 
-// License fields (email/key/trialHoursUsed) aren't edited here yet (M4) -
-// array_replace_recursive above preserves them untouched either way.
 
 $source = trim((string)($_POST["source"] ?? ""));
 if (!in_array($source, ["", "tunein", "pandora", "spotify"], true)) {
@@ -81,6 +79,11 @@ if ($postedSecret !== "" && $postedSecret !== "__unchanged__") {
 }
 $cfg["spotify"]["playlistUri"] = trim((string)($_POST["spotify_playlistUri"] ?? $cfg["spotify"]["playlistUri"]));
 $cfg["spotify"]["playlistName"] = trim((string)($_POST["spotify_playlistName"] ?? $cfg["spotify"]["playlistName"]));
+
+// License (M4) - email/key are the only fields this form edits;
+// trialSecondsUsed is only ever written by er_track_usage.sh.
+$cfg["license"]["email"] = trim((string)($_POST["license_email"] ?? $cfg["license"]["email"]));
+$cfg["license"]["key"] = trim((string)($_POST["license_key"] ?? $cfg["license"]["key"]));
 
 // Announcement Assistant scheduling (M2)
 $cfg["announce"]["enabled"] = isset($_POST["announce_enabled"]) && $_POST["announce_enabled"] === "1";

@@ -33,6 +33,14 @@ except: print('')
 " 2>/dev/null || echo ""
 }
 
+GATE_MSG="$(bash "${HERE}/er_premium_gate.sh" check)"
+GATE_RC=$?
+if [[ "$GATE_RC" -ne 0 ]]; then
+    log "ERROR: $GATE_MSG"
+    exit 1
+fi
+log "Premium gate: $GATE_MSG"
+
 PLAYLIST_URI="$(cfg playlistUri)"
 DEVICE_NAME="$(cfg deviceName)"
 
@@ -89,6 +97,7 @@ if [[ "$HTTP_CODE" != "204" && "$HTTP_CODE" != "200" ]]; then
 fi
 
 log "Playback started"
+bash "${HERE}/er_track_usage.sh" start
 
 # "volume" is a top-level config field (shared across all sources), not
 # under "spotify" - unlike the cfg() helper above which only reads spotify.*

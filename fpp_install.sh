@@ -280,7 +280,7 @@ seed_default_config_if_missing() {
   "license": {
     "email": "",
     "key": "",
-    "trialHoursUsed": 0
+    "trialSecondsUsed": 0
   }
 }
 EOF

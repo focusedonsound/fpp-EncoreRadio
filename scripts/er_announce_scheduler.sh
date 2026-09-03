@@ -33,8 +33,12 @@ log() { echo "[$(ts)] [announce] $*" >> "$LOG_FILE"; }
 # Play call). So on 10.x we have to duck ourselves around the call instead.
 fpp10_stream_slots_active() {
     local code
+    # No "|| echo 000" fallback here: curl's -w already prints "000" on
+    # its own for a connection failure (confirmed on real hardware - the
+    # fallback was firing too, on top of curl's own "000", concatenating
+    # into a bogus "000000" with no error ever being visible as such).
     code="$(curl -s -m 3 -o /dev/null -w '%{http_code}' \
-        "http://localhost/api/command/Media%20Slot%20Status" 2>/dev/null || echo 000)"
+        "http://localhost/api/command/Media%20Slot%20Status" 2>/dev/null)"
     [[ "$code" == "200" ]]
 }
 

@@ -10,7 +10,7 @@ function loadConfig($path) {
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
-    "license" => ["email" => "", "key" => "", "trialHoursUsed" => 0],
+    "license" => ["email" => "", "key" => "", "trialSecondsUsed" => 0],
   ];
   if (file_exists($path)) {
     $j = json_decode(@file_get_contents($path), true);
@@ -39,6 +39,11 @@ $aaSlots = loadAASlots();
 $aaInstalled = file_exists("/home/fpp/media/config/announcementassistant.json");
 $spotifyConnected = trim((string)$cfg["spotify"]["refreshToken"]) !== "";
 $raspotifyInstalled = file_exists("/usr/bin/librespot");
+
+$hasLicenseKey = trim((string)$cfg["license"]["key"]) !== "";
+$trialSecondsUsed = (int)($cfg["license"]["trialSecondsUsed"] ?? 0);
+$trialSecondsRemaining = max(0, (10 * 3600) - $trialSecondsUsed);
+$trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 ?>
 
 <h1 class="title">Encore Radio</h1>
@@ -250,6 +255,46 @@ $raspotifyInstalled = file_exists("/usr/bin/librespot");
     <?php endif; ?>
   </fieldset>
 
+  <fieldset id="er-fieldset-license" style="margin-bottom:20px;">
+    <legend>License (Premium)</legend>
+
+    <?php if ($hasLicenseKey): ?>
+      <p>License key on file. Premium features (Spotify, multi-source rotation) are unlocked.</p>
+    <?php else: ?>
+      <p>
+        <strong><?php echo $trialHoursRemaining; ?> premium hours remaining</strong>
+        out of a 10-hour trial (only counts while Spotify is actually
+        playing - TuneIn and Pandora are always free and don't use any of
+        this).
+      </p>
+    <?php endif; ?>
+
+    <table class="fppTable" style="width:100%; max-width:500px;">
+      <tr>
+        <td>Email</td>
+        <td>
+          <input type="email" name="license_email" id="er-license-email"
+                 value="<?php echo htmlspecialchars($cfg["license"]["email"]); ?>" style="width:100%;" />
+        </td>
+      </tr>
+      <tr>
+        <td>License Key</td>
+        <td><input type="text" name="license_key" value="<?php echo htmlspecialchars($cfg["license"]["key"]); ?>" style="width:100%;" /></td>
+      </tr>
+    </table>
+    <div style="margin-top:8px;">
+      <button type="button" class="buttons btn-outline-primary" onclick="erSave().then(erRegisterLicense)">
+        Save &amp; Register
+      </button>
+      <span id="er-license-status" style="margin-left:10px;"></span>
+    </div>
+    <p style="font-size:0.9em; color:#888;">
+      Registering just lets us email you before your trial runs out and
+      issue a license key when you're ready - Encore Radio itself never
+      links to a purchase page (not allowed by the FPP plugin guidelines).
+    </p>
+  </fieldset>
+
   <div id="er-save" style="margin-top:12px;">
     <button type="button" class="buttons btn-outline-success" onclick="erSave()">Save</button>
     <button type="button" class="buttons btn-outline-primary" onclick="erStart()">Start Now</button>
@@ -384,6 +429,19 @@ $raspotifyInstalled = file_exists("/usr/bin/librespot");
       };
       resultsDiv.appendChild(btn);
     });
+  }
+
+  async function erRegisterLicense() {
+    const statusEl = document.getElementById('er-license-status');
+    statusEl.textContent = "Registering...";
+    const email = document.getElementById('er-license-email').value.trim();
+    const res = await fetch(erUrl('license_register.php'), {
+      method: 'POST',
+      body: new URLSearchParams({ email }),
+      cache: 'no-store'
+    });
+    const j = await erReadJson(res);
+    statusEl.textContent = j.message || j.status || "";
   }
 
   async function erSave() {

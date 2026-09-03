@@ -68,6 +68,7 @@ if [[ "$SOURCE" == "spotify" ]]; then
         curl -s -m 10 -X PUT "https://api.spotify.com/v1/me/player/pause" \
             -H "Authorization: Bearer ${TOKEN}" >> "$LOG_FILE" 2>&1 || true
     fi
+    bash "${HERE}/er_track_usage.sh" finalize
 fi
 
 log "Stop complete"
