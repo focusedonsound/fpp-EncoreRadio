@@ -20,7 +20,7 @@ function defaultConfig() {
     "volume" => 70,
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
-    "spotify" => ["clientId" => "", "clientSecret" => "", "playlistUri" => "", "playlistName" => ""],
+    "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
     "license" => ["email" => "", "key" => "", "trialHoursUsed" => 0],
   ];
@@ -40,11 +40,8 @@ if (file_exists($configFile)) {
   if (is_array($j)) $cfg = array_replace_recursive($cfg, $j);
 }
 
-// M1 scope: only the Sources section (TuneIn/Pandora + source pick + volume)
-// is editable from this form. Schedule/Announcements/License sections are
-// added to this same form in later milestones - unknown fields already in
-// config (spotify, announce, license) are preserved above via
-// array_replace_recursive, never dropped by an early save.
+// License fields (email/key/trialHoursUsed) aren't edited here yet (M4) -
+// array_replace_recursive above preserves them untouched either way.
 
 $source = trim((string)($_POST["source"] ?? ""));
 if (!in_array($source, ["", "tunein", "pandora", "spotify"], true)) {
@@ -72,6 +69,18 @@ if ($postedPassword !== "" && $postedPassword !== "__unchanged__") {
 }
 $cfg["pandora"]["stationId"]   = trim((string)($_POST["pandora_stationId"] ?? $cfg["pandora"]["stationId"]));
 $cfg["pandora"]["stationName"] = trim((string)($_POST["pandora_stationName"] ?? $cfg["pandora"]["stationName"]));
+
+// Spotify (premium tier) - only the form-editable fields; accessToken/
+// refreshToken/tokenExpiresAt come from the OAuth callback, deviceName
+// from the installer, and array_replace_recursive above already preserved
+// all of those, so only overwrite the subset this form actually edits.
+$cfg["spotify"]["clientId"] = trim((string)($_POST["spotify_clientId"] ?? $cfg["spotify"]["clientId"]));
+$postedSecret = (string)($_POST["spotify_clientSecret"] ?? "");
+if ($postedSecret !== "" && $postedSecret !== "__unchanged__") {
+  $cfg["spotify"]["clientSecret"] = $postedSecret;
+}
+$cfg["spotify"]["playlistUri"] = trim((string)($_POST["spotify_playlistUri"] ?? $cfg["spotify"]["playlistUri"]));
+$cfg["spotify"]["playlistName"] = trim((string)($_POST["spotify_playlistName"] ?? $cfg["spotify"]["playlistName"]));
 
 // Announcement Assistant scheduling (M2)
 $cfg["announce"]["enabled"] = isset($_POST["announce_enabled"]) && $_POST["announce_enabled"] === "1";

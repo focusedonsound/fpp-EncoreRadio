@@ -53,4 +53,21 @@ fi
 # Relay: always stop last, once nothing should be feeding it anymore.
 "${HERE}/er_relay.sh" stop >/dev/null 2>&1 || true
 
+# Spotify: nothing local to kill (Raspotify is a permanent system service,
+# not something this plugin starts/stops) - just pause playback via the
+# Web API so it doesn't keep going after after-hours mode ends.
+CFG_FILE="/home/fpp/media/config/encoreradio.json"
+SOURCE="$(python3 -c "
+import json
+try:    print(json.load(open('$CFG_FILE')).get('source', ''))
+except: print('')
+" 2>/dev/null || echo "")"
+if [[ "$SOURCE" == "spotify" ]]; then
+    TOKEN="$(bash "${HERE}/spotify_token.sh" 2>/dev/null)"
+    if [[ -n "$TOKEN" ]]; then
+        curl -s -m 10 -X PUT "https://api.spotify.com/v1/me/player/pause" \
+            -H "Authorization: Bearer ${TOKEN}" >> "$LOG_FILE" 2>&1 || true
+    fi
+fi
+
 log "Stop complete"

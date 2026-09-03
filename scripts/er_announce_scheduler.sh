@@ -41,12 +41,34 @@ fpp10_stream_slots_active() {
 our_sink_input_index() {
     local pid
     pid="$(cat "${STATE_DIR}/playback.pid" 2>/dev/null || echo "")"
-    [[ -z "$pid" ]] && return
-    pactl -f json list sink-inputs 2>/dev/null | python3 -c "
+    if [[ -n "$pid" ]]; then
+        # TuneIn/Pandora: our own ffplay process, matched by PID.
+        pactl -f json list sink-inputs 2>/dev/null | python3 -c "
 import json, sys
 try:
     for si in json.load(sys.stdin):
         if str(si.get('properties', {}).get('application.process.id', '')) == '$pid':
+            print(si['index'])
+            break
+except Exception:
+    pass
+" 2>/dev/null
+        return
+    fi
+
+    # Spotify: no PID we control (Raspotify is a permanent system service),
+    # so match its sink-input by application name instead. Unverified on
+    # real hardware (no Spotify Premium account to test with yet) - if
+    # Raspotify reports a different application.name, this lookup silently
+    # finds nothing and self-ducking is skipped, same as any other
+    # not-found case; check EncoreRadio.log's "self-ducking" lines against
+    # `pactl list sink-inputs` if announcements don't duck Spotify on 10.x.
+    pactl -f json list sink-inputs 2>/dev/null | python3 -c "
+import json, sys
+try:
+    for si in json.load(sys.stdin):
+        name = str(si.get('properties', {}).get('application.name', '')).lower()
+        if 'librespot' in name or 'raspotify' in name:
             print(si['index'])
             break
 except Exception:

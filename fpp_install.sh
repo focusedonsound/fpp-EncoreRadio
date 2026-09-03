@@ -76,6 +76,71 @@ install_pkgs_if_missing() {
   fi
 }
 
+install_raspotify_if_needed() {
+  # librespot itself has no prebuilt ARM binaries (checked: GitHub releases
+  # ship source only). Raspotify is the standard, maintained Spotify Connect
+  # package for Raspberry Pi - a proper .deb, not a random curl|sh script.
+  if command -v librespot >/dev/null 2>&1 || dpkg -s raspotify >/dev/null 2>&1; then
+    log "Raspotify/librespot already installed."
+    return 0
+  fi
+
+  local arch deb_url
+  arch="$(dpkg --print-architecture)"
+  case "$arch" in
+    armhf) deb_url="https://dtcooper.github.io/raspotify/raspotify-latest_armhf.deb" ;;
+    arm64) deb_url="https://dtcooper.github.io/raspotify/raspotify-latest_arm64.deb" ;;
+    *)
+      log "WARNING: no known Raspotify build for architecture '$arch' - Spotify (premium) backend will not work. TuneIn/Pandora are unaffected."
+      return 0
+      ;;
+  esac
+
+  log "Installing Raspotify (Spotify Connect) for $arch…"
+  local tmp_deb="/tmp/raspotify-latest_${arch}.deb"
+  if ! curl -sL -o "$tmp_deb" "$deb_url"; then
+    log "WARNING: failed to download Raspotify - Spotify (premium) backend will not work."
+    return 0
+  fi
+  dpkg -i "$tmp_deb" 2>&1 || true
+  apt-get install -y -f 2>&1 || true
+  rm -f "$tmp_deb"
+
+  if ! command -v librespot >/dev/null 2>&1; then
+    log "WARNING: Raspotify install did not complete successfully."
+    return 0
+  fi
+
+  # Defaults to ALSA; we route everything through PulseAudio (same socket
+  # AA ducks / our other backends use) and give it a name our own Web API
+  # device lookup can recognize by an exact match.
+  local device_name="EncoreRadio-$(hostname)"
+  ensure_dir /etc/raspotify
+  if [[ -f /etc/raspotify/conf ]]; then
+    sed -i -E 's/^#?LIBRESPOT_BACKEND=.*/LIBRESPOT_BACKEND="pulseaudio"/' /etc/raspotify/conf
+    if grep -q '^#\?LIBRESPOT_NAME=' /etc/raspotify/conf; then
+      sed -i -E "s/^#?LIBRESPOT_NAME=.*/LIBRESPOT_NAME=\"${device_name}\"/" /etc/raspotify/conf
+    else
+      echo "LIBRESPOT_NAME=\"${device_name}\"" >> /etc/raspotify/conf
+    fi
+  fi
+
+  # Stored so our own scripts know which Connect device name to look up via
+  # the Web API without having to re-read raspotify's own config file.
+  python3 -c "
+import json
+cfg = json.load(open('$CFG_FILE')) if __import__('os').path.exists('$CFG_FILE') else {}
+cfg.setdefault('spotify', {})['deviceName'] = '${device_name}'
+json.dump(cfg, open('$CFG_FILE', 'w'), indent=2)
+" 2>/dev/null || true
+
+  systemctl daemon-reload
+  systemctl enable raspotify.service 2>&1 || true
+  systemctl restart raspotify.service 2>&1 || true
+
+  log "Raspotify installed - device name: ${device_name}. One-time pairing still needed (see plugin page)."
+}
+
 ensure_users_in_audio_group() {
   if id -u pulse >/dev/null 2>&1; then
     usermod -aG audio pulse || true
@@ -198,8 +263,12 @@ seed_default_config_if_missing() {
   "spotify": {
     "clientId": "",
     "clientSecret": "",
+    "accessToken": "",
+    "refreshToken": "",
+    "tokenExpiresAt": 0,
     "playlistUri": "",
-    "playlistName": ""
+    "playlistName": "",
+    "deviceName": ""
   },
   "announce": {
     "enabled": false,
@@ -268,6 +337,7 @@ main() {
   ensure_users_in_audio_group
   setup_system_pulseaudio_if_needed
   seed_default_config_if_missing
+  install_raspotify_if_needed
   fix_plugin_script_perms
   post_install_notes
 

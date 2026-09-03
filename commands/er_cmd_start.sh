@@ -35,32 +35,31 @@ try:    print(json.load(open('$CFG_FILE')).get('source', ''))
 except: print('')
 " 2>/dev/null || echo "")"
 
+log "START source=$SOURCE"
+
 case "$SOURCE" in
-    tunein)
-        BACKEND_SCRIPT="${PLUGIN_DIR}/scripts/backends/tunein_stream.sh"
-        ;;
-    pandora)
-        BACKEND_SCRIPT="${PLUGIN_DIR}/scripts/backends/pandora_pianobar.sh"
+    tunein|pandora)
+        # These feed the local relay; playback is a separate step via
+        # er_play_pulse.sh once the relay is actually accepting connections.
+        if [[ "$SOURCE" == "tunein" ]]; then
+            bash "${PLUGIN_DIR}/scripts/backends/tunein_stream.sh"
+        else
+            bash "${PLUGIN_DIR}/scripts/backends/pandora_pianobar.sh"
+        fi
+        sleep 2
+        bash "${PLUGIN_DIR}/scripts/er_play_pulse.sh"
         ;;
     spotify)
-        log "ERROR: Spotify backend not yet implemented (premium, milestone M3)"
-        exit 1
+        # No relay involved - Raspotify (already running as its own system
+        # service) outputs straight to PulseAudio; this just tells the Web
+        # API to start playback on it.
+        bash "${PLUGIN_DIR}/scripts/backends/spotify_web.sh"
         ;;
     *)
         log "ERROR: no source configured (encoreradio.json 'source' is empty)"
         exit 1
         ;;
 esac
-
-log "START source=$SOURCE"
-bash "$BACKEND_SCRIPT"
-
-# Give the relay a moment to come up before handing its URL to the playback
-# path - ffmpeg's -listen HTTP server needs to be accepting connections
-# first.
-sleep 2
-
-bash "${PLUGIN_DIR}/scripts/er_play_pulse.sh"
 
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
 mkdir -p "$STATE_DIR" 2>/dev/null || true
