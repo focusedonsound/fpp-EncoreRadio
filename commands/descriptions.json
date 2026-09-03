@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Encore Radio - Start",
+    "description": "Start after-hours streaming using the configured source (TuneIn, Pandora, or Spotify).",
+    "script": "er_cmd_start.sh"
+  },
+  {
+    "name": "Encore Radio - Stop",
+    "description": "Stop after-hours streaming and release the audio output.",
+    "script": "er_cmd_stop.sh"
+  }
+]
