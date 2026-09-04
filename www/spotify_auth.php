@@ -44,7 +44,11 @@ $nonce = bin2hex(random_bytes(16));
 session_start();
 $_SESSION["encoreradio_spotify_state"] = $nonce;
 
-$localReturn = encoreRadioLocalCallbackUri() . "?nonce=" . urlencode($nonce);
+// encoreRadioLocalCallbackUri() already has its own query string
+// (?plugin=...&nopage=1&page=...), so this must be "&", not "?" - a
+// second "?" isn't a delimiter, it's swallowed as a literal character
+// into the "page" value, which broke FPP's own page routing entirely.
+$localReturn = encoreRadioLocalCallbackUri() . "&nonce=" . urlencode($nonce);
 
 $params = http_build_query([
   "client_id" => $clientId,
