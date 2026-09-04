@@ -1019,14 +1019,60 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   // Same coach-mark approach as fpp-plugin-RemoteBackup's config.php:
   // steps top to bottom through this page's own sections, a spotlight +
   // arrow + popup card, auto-shown once, replayable, toggleable off.
+  function erTourSelectSource(val) {
+    var el = document.getElementById('er-source-' + val);
+    if (el) { el.checked = true; erShowSourceSection(); }
+  }
+
   var ER_TOUR_STEPS = [
     {
       selector: '#er-fieldset-source',
-      title: 'Pick a Source',
-      text: 'A custom internet radio URL, a network share of your own ' +
-        'music, and TuneIn are all free. Pandora (a genre/artist station) ' +
-        'and Spotify (your own custom playlist) are both premium features ' +
-        '- 10 free trial hours, then a license key.'
+      title: 'Five Sources to Choose From',
+      text: 'Two free options need nothing but what you type in here; ' +
+        'TuneIn is free too. Pandora and Spotify are premium - 10 free ' +
+        'trial hours, then a license key. The next few steps walk through ' +
+        'each one.'
+    },
+    {
+      selector: '#er-customstream-section',
+      title: 'Internet Radio (URL) - Free',
+      text: 'Any plain HTTP/HTTPS stream URL you already have - paste it ' +
+        'in and give it a label. No account, no login.',
+      onEnter: function () { erTourSelectSource('customstream'); }
+    },
+    {
+      selector: '#er-netshare-section',
+      title: 'Network Share - Free',
+      text: 'Point at a folder on an existing SMB/CIFS share - a NAS, or a ' +
+        'shared folder from a PC on the same network - and it plays every ' +
+        'audio file in there, shuffled, on a loop. Nothing gets copied ' +
+        'onto this device, so the library can be far bigger than local ' +
+        'storage would allow.',
+      onEnter: function () { erTourSelectSource('netshare'); }
+    },
+    {
+      selector: '#er-tunein-section',
+      title: 'TuneIn - Free',
+      text: 'Search TuneIn\'s station directory and pick one - a real ' +
+        'internet radio station, no login required.',
+      onEnter: function () { erTourSelectSource('tunein'); }
+    },
+    {
+      selector: '#er-pandora-section',
+      title: 'Pandora - Premium',
+      text: 'Your own Pandora account and a genre/artist station of your ' +
+        'choosing. Needs your Pandora username/password and a station ID ' +
+        '(the number from that station\'s URL).',
+      onEnter: function () { erTourSelectSource('pandora'); }
+    },
+    {
+      selector: '#er-spotify-section',
+      title: 'Spotify - Premium',
+      text: 'Your own curated playlist, not just a fixed station. Needs a ' +
+        'one-time Spotify Developer App connection, then pairing this ' +
+        'device once via your phone\'s Spotify app - both are explained ' +
+        'right here once you pick Spotify.',
+      onEnter: function () { erTourSelectSource('spotify'); }
     },
     {
       selector: '#er-fieldset-volume',
@@ -1044,12 +1090,28 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
         'automatically - no need to add separate FPP schedule entries for it.'
     },
     {
+      selector: '#er-fieldset-rotation',
+      title: 'Source Rotation - Premium',
+      text: 'Optional. Play a different source depending on the day and ' +
+        'time instead of always the one picked above - upbeat earlier in ' +
+        'the night, mellower later, something different on weekends.'
+    },
+    {
+      selector: '#er-fieldset-fallback',
+      title: 'Source Fallback - Premium',
+      text: 'Optional. If a source fails to start, or dies partway ' +
+        'through the night, Encore Radio automatically tries the next one ' +
+        'in the order you set here - put a free source last as a ' +
+        'guaranteed backstop, since it doesn\'t depend on an external ' +
+        'account being reachable.'
+    },
+    {
       selector: '#er-fieldset-license',
       title: 'License (Premium)',
       text: 'Tracks your 10-hour Pandora/Spotify trial (TuneIn never counts ' +
-        'against it). Register your email so we can reach you before it ' +
-        'runs out, and enter a license key here once you have one - ' +
-        'nothing on this page ever links to a purchase page.'
+        'against it). You\'re already registered, so we\'ll reach out ' +
+        'before your trial runs low - enter a license key here once you ' +
+        'have one. Nothing on this page ever links to a purchase page.'
     },
     {
       selector: '#er-save',
@@ -1062,6 +1124,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   ];
   var erTourIndex = -1;
   var erTourReposition = null;
+  var erTourOriginalSource = '';
 
   function erTourBuildDom() {
     if (document.getElementById('er-tour-popup')) return;
@@ -1090,6 +1153,8 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   }
 
   function erTourStart() {
+    var checkedSource = document.querySelector('input[name="source"]:checked');
+    erTourOriginalSource = checkedSource ? checkedSource.value : '';
     erTourBuildDom();
     erTourGo(0);
   }
@@ -1099,6 +1164,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     if (index >= ER_TOUR_STEPS.length) { erTourEnd(); return; }
     erTourIndex = index;
     var step = ER_TOUR_STEPS[index];
+    if (typeof step.onEnter === 'function') step.onEnter();
     var target = document.querySelector(step.selector);
     if (!target) { erTourGo(index + 1); return; }
     document.getElementById('er-tour-step-of').textContent = 'Step ' + (index + 1) + ' of ' + ER_TOUR_STEPS.length;
@@ -1151,6 +1217,16 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       var el = document.getElementById(id);
       if (el) el.remove();
     });
+    // The tour selects each source's radio button in turn to reveal its
+    // fields while explaining them - restore whatever was actually picked
+    // before the tour started so walking through it doesn't silently
+    // change what Start Now/Save would use afterward.
+    if (erTourOriginalSource) {
+      erTourSelectSource(erTourOriginalSource);
+    } else {
+      document.querySelectorAll('input[name="source"]').forEach(function (el) { el.checked = false; });
+      erShowSourceSection();
+    }
     fetch(erUrl('mark_onboarding_seen.php'), { method: 'POST', cache: 'no-store' }).catch(function () {});
   }
 
@@ -1159,10 +1235,15 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
   document.getElementById('er-onboarding-replay').addEventListener('click', function (e) {
     e.preventDefault();
+    if (!<?php echo $registered ? "true" : "false"; ?>) {
+      erSetStatus("Register your email at the top of the page first, then replay the walkthrough.");
+      return;
+    }
     erTourStart();
   });
 
-  if (!<?php echo $cfg["ui"]["onboardingSeen"] ? "true" : "false"; ?> &&
+  if (<?php echo $registered ? "true" : "false"; ?> &&
+      !<?php echo $cfg["ui"]["onboardingSeen"] ? "true" : "false"; ?> &&
       document.getElementById('er-onboardingTourEnabled').checked) {
     erTourStart();
   }
