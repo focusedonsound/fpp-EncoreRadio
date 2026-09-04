@@ -994,7 +994,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       const label = result.indicator.tooltip ? result.indicator.tooltip.replace(/^Encore Radio: /, '') : '';
       erSetStatus(label ? ("Started: " + label) : "Started.");
     } else {
-      erSetStatus("Dispatched, but playback isn't showing as active - check EncoreRadio.log.");
+      erSetStatus("Dispatched, but playback isn't showing as active - check plugin-fpp-EncoreRadio.log.");
     }
   }
 

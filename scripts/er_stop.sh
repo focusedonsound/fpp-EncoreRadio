@@ -6,7 +6,7 @@
 set -uo pipefail
 
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
-LOG_FILE="/home/fpp/media/logs/EncoreRadio.log"
+LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }

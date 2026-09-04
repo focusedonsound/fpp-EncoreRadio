@@ -38,3 +38,13 @@ fi
 # trial-hour counters) is left too - trial tracking is meant to survive
 # uninstall/reinstall by design (see license/trial-hours gating).
 log "Stopped any running Encore Radio processes. Config and state left in place."
+
+# fppd only reads commands/descriptions.json once, at its own startup - it
+# never re-reads it in response to a plugin uninstall, so the "Encore
+# Radio - Start"/"Stop" commands would otherwise silently linger as ghosts
+# until fppd happens to restart for an unrelated reason. Same restartFlag
+# mechanism fpp_install.sh already uses.
+set +u
+. "${FPPDIR:-/opt/fpp}/scripts/common" 2>/dev/null || true
+set -u
+setSetting restartFlag 1 2>/dev/null || true

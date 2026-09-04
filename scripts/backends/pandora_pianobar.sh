@@ -18,7 +18,7 @@ set -euo pipefail
 
 CFG_FILE="/home/fpp/media/config/encoreradio.json"
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
-LOG_FILE="/home/fpp/media/logs/EncoreRadio.log"
+LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SINK_NAME="encoreradio_pandora"
 PIANOBAR_CTL="${STATE_DIR}/pianobar.fifo"

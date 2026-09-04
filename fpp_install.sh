@@ -110,6 +110,43 @@ install_raspotify_if_needed() {
     log "WARNING: failed to download Raspotify - Spotify (premium) backend will not work."
     return 0
   fi
+
+  # Verify against the checksum GitHub computed at upload time for the
+  # matching release asset - fetched from the API rather than hardcoded,
+  # since "latest" is a rolling target that changes on every raspotify
+  # release. HTTPS already protects the transport; this is defense in
+  # depth in case the download URL, GitHub Pages mirror, or upstream
+  # release itself is ever compromised - this runs as root, installing
+  # via dpkg, so it's worth the extra API call. Confirmed by hand that
+  # the github.io "latest" mirror and the matching GitHub Release asset
+  # are byte-identical before relying on this.
+  local expected_sha
+  expected_sha="$(curl -s "https://api.github.com/repos/dtcooper/raspotify/releases/latest" | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    for a in data.get('assets', []):
+        name = a.get('name', '')
+        if name.startswith('raspotify_') and name.endswith('_${arch}.deb'):
+            digest = a.get('digest', '')
+            print(digest.split(':', 1)[1] if digest.startswith('sha256:') else '')
+            break
+except Exception:
+    pass
+" 2>/dev/null)"
+  if [[ -n "$expected_sha" ]]; then
+    local actual_sha
+    actual_sha="$(sha256sum "$tmp_deb" | awk '{print $1}')"
+    if [[ "$actual_sha" != "$expected_sha" ]]; then
+      log "ERROR: Raspotify download checksum mismatch (expected ${expected_sha}, got ${actual_sha}) - refusing to install. Spotify (premium) backend will not work."
+      rm -f "$tmp_deb"
+      return 0
+    fi
+    log "Raspotify download checksum verified."
+  else
+    log "WARNING: could not fetch expected checksum from GitHub API - installing without verification."
+  fi
+
   dpkg -i "$tmp_deb" 2>&1 || true
   apt-get install -y -f 2>&1 || true
   rm -f "$tmp_deb"
@@ -206,7 +243,7 @@ Type=simple
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0755 /run/pulse
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config/pulse
-ExecStart=/usr/bin/pulseaudio --system -nF /etc/pulse/system.pa --disallow-exit --exit-idle-time=-1 --log-target=file:/home/fpp/media/logs/EncoreRadio-pulse.log
+ExecStart=/usr/bin/pulseaudio --system -nF /etc/pulse/system.pa --disallow-exit --exit-idle-time=-1 --log-target=file:/home/fpp/media/logs/plugin-fpp-EncoreRadio-pulse.log
 ExecStartPost=/bin/sh -c 'chmod 0666 /run/pulse/native || true'
 Restart=on-failure
 RestartSec=1

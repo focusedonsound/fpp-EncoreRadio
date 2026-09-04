@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Check `/home/fpp/media/logs/EncoreRadio.log` first - every script writes
+Check `/home/fpp/media/logs/plugin-fpp-EncoreRadio.log` first - every script writes
 timestamped, tagged lines there (`[er_relay]`, `[pulse-play]`, `[spotify]`,
 `[announce]`, `[premium-gate]`, `[usage]`, etc.).
 

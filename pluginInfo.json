@@ -11,6 +11,15 @@
   "versions": [
     {
       "minFPPVersion": "9.0",
+      "maxFPPVersion": "9.99",
+      "branch": "master",
+      "sha": "",
+      "dependencies": {
+        "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "cifs-utils"]
+      }
+    },
+    {
+      "minFPPVersion": "10.0",
       "maxFPPVersion": "0",
       "branch": "master",
       "sha": "",

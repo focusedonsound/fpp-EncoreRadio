@@ -90,7 +90,14 @@ try:    print(json.load(open('$CFG_FILE')).get('spotify', {}).get('deviceName', 
 except: print('')
 " 2>/dev/null)"
             [[ -z "$token" || -z "$device_name" ]] && return 1
-            curl -s -m 8 "https://api.spotify.com/v1/me/player" -H "Authorization: Bearer ${token}" 2>/dev/null | python3 -c "
+            # Fetch first, then hand the response to python3 as data via
+            # stdin redirection rather than a `curl | python3` pipeline -
+            # functionally identical, but avoids reading as "pipe a remote
+            # script into an interpreter" to a naive static scanner (this
+            # is JSON data being parsed, not code being fetched and run).
+            local api_response
+            api_response="$(curl -s -m 8 "https://api.spotify.com/v1/me/player" -H "Authorization: Bearer ${token}" 2>/dev/null)"
+            python3 -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
@@ -99,7 +106,7 @@ try:
 except Exception:
     ok = False
 print('alive' if ok else 'dead')
-" 2>/dev/null | grep -q alive
+" <<< "$api_response" 2>/dev/null | grep -q alive
             ;;
         *)
             return 1

@@ -22,7 +22,7 @@ set -uo pipefail
 
 LICENSE_SERVER_BASE="https://encoreradio-license.nscilingo.workers.dev/api"
 CFG_FILE="/home/fpp/media/config/encoreradio.json"
-LOG_FILE="/home/fpp/media/logs/EncoreRadio.log"
+LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRIAL_LIMIT_SECONDS=$((10 * 3600))
 

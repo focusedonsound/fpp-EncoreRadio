@@ -9,7 +9,7 @@ set -euo pipefail
 
 CFG_FILE="/home/fpp/media/config/encoreradio.json"
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
-LOG_FILE="/home/fpp/media/logs/EncoreRadio.log"
+LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 PID_FILE="${STATE_DIR}/playback.pid"
 
 mkdir -p "$STATE_DIR" 2>/dev/null || true
