@@ -104,8 +104,5 @@ a license key - see `docs/configuration.md`.
 
 ## License gating
 
-`scripts/er_premium_gate.sh` checks a license key (validated against the
-[license server](https://github.com/focusedonsound/fpp-EncoreRadio-license-server),
-with a grace period if it's briefly unreachable) or, absent one,
-cumulative trial seconds used so far. `scripts/er_track_usage.sh` records
-actual Spotify playback time and reports it to the license server.
+Premium features check for a valid trial or license before starting.
+See `docs/configuration.md` for the relevant config fields.

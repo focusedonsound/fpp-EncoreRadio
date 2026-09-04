@@ -6,12 +6,13 @@
   "homeURL": "https://github.com/focusedonsound/fpp-EncoreRadio",
   "srcURL": "https://github.com/focusedonsound/fpp-EncoreRadio.git",
   "bugURL": "https://github.com/focusedonsound/fpp-EncoreRadio/issues",
+  "iconURL": "https://raw.githubusercontent.com/focusedonsound/fpp-EncoreRadio/master/icon.png",
   "allowUpdates": 1,
   "versions": [
     {
       "minFPPVersion": "9.0",
       "maxFPPVersion": "0",
-      "branch": "main",
+      "branch": "master",
       "sha": "",
       "dependencies": {
         "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "cifs-utils"]
