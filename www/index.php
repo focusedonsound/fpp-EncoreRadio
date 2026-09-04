@@ -346,8 +346,10 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
               <p class="small text-muted">
                 Create a free app at
                 <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a>,
-                then add this exact Redirect URI to it:
-                <code id="er-spotify-redirect-uri"></code>
+                then add this exact Redirect URI to it (the same fixed URL
+                for every Encore Radio install - Spotify requires HTTPS,
+                which this box's own local address can't provide):
+                <code>https://encoreradio-license.nscilingo.workers.dev/spotify/callback</code>
               </p>
 
               <div class="d-flex align-items-center gap-2 mt-2 mb-2 flex-wrap">
@@ -558,12 +560,6 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     el.addEventListener('change', erShowSourceSection);
   });
   erShowSourceSection();
-
-  const redirectUriEl = document.getElementById('er-spotify-redirect-uri');
-  if (redirectUriEl) {
-    redirectUriEl.textContent = window.location.origin +
-      '/plugin.php?plugin=fpp-EncoreRadio&nopage=1&page=www/spotify_callback.php';
-  }
 
   function erToggleSpotifySecret() {
     const el = document.getElementById('er-spotify-secret');

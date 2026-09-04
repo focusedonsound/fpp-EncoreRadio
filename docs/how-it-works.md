@@ -27,6 +27,21 @@ network streams, so it can never play a relay URL. PipeWire's pulse-compat
 socket handles it identically to FPP 9.x instead, so there's only one
 playback path.
 
+## Spotify OAuth redirect bounce
+
+Spotify only accepts an `https://` redirect URI (or an exact `127.0.0.1`
+loopback) - a plain LAN address like `http://192.168.x.x` is rejected
+outright, and every Encore Radio install has a different LAN address
+anyway, so there's no single fixed URL that could point straight at the
+device. Instead, every install's Spotify Developer App is configured with
+one fixed HTTPS redirect URI pointing at the license server
+(`/spotify/callback`). `www/spotify_auth.php` passes the device's own
+local callback URL through Spotify's `state` parameter; the license
+server's handler does nothing but a plain 302 redirect back to that URL
+with the auth `code` appended - the token exchange itself still happens
+entirely on the local device (`www/spotify_callback.php`), which never
+sends the client secret anywhere but Spotify.
+
 ## Announcement Assistant integration
 
 If [Announcement Assistant](https://github.com/focusedonsound/fpp-AnnouncementAssistant)

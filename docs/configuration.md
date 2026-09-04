@@ -35,9 +35,12 @@ Add these to FPP's own Scheduler (Content Setup > Scheduler):
 ## Spotify setup (premium)
 
 1. Create a free app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard).
-2. Add the exact Redirect URI shown on the Encore Radio page (it depends
-   on your FPP box's own address, so it can't be documented as one fixed
-   URL here).
+2. Add this exact Redirect URI to it: `https://encoreradio-license.nscilingo.workers.dev/spotify/callback`.
+   Spotify requires HTTPS (or an exact `127.0.0.1` loopback) and rejects a
+   plain LAN address like `http://192.168.x.x`, so every Encore Radio
+   install points at this one fixed HTTPS URL, which bounces the browser
+   straight back to that specific device's own local callback page - see
+   `docs/how-it-works.md`.
 3. Enter the Client ID/Secret on the Encore Radio page and click
    "Save & Connect to Spotify" - this authorizes Encore Radio's own API
    calls (search, start/stop playback).

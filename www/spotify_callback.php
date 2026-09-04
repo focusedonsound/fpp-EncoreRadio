@@ -1,10 +1,17 @@
 <?php
 declare(strict_types=1);
 
-// Encore Radio - Spotify OAuth step 2: Spotify redirects here with a
-// one-time code after the owner approves access. Exchange it for an
-// access token + refresh token and store them (masked in the UI, same
-// pattern as any other credential field).
+// Encore Radio - Spotify OAuth step 2. Spotify itself redirects to the
+// license server's fixed HTTPS `/spotify/callback` (see spotify_auth.php
+// for why), which bounces the browser straight back here with the code
+// appended. Exchange it for an access token + refresh token and store
+// them (masked in the UI, same pattern as any other credential field).
+
+// Must match the fixed URL sent as redirect_uri in the original authorize
+// request (spotify_auth.php) - Spotify requires the token exchange's
+// redirect_uri to match exactly, even though nothing is actually
+// redirected there again at this point.
+define("ER_SPOTIFY_FIXED_REDIRECT_URI", "https://encoreradio-license.nscilingo.workers.dev/spotify/callback");
 
 $configFile = "/home/fpp/media/config/encoreradio.json";
 
@@ -17,15 +24,15 @@ function renderResult(bool $ok, string $message): void {
 }
 
 session_start();
-$expectedState = $_SESSION["encoreradio_spotify_state"] ?? null;
-$state = $_GET["state"] ?? null;
+$expectedNonce = $_SESSION["encoreradio_spotify_state"] ?? null;
+$nonce = $_GET["nonce"] ?? null;
 $code = $_GET["code"] ?? null;
 $error = $_GET["error"] ?? null;
 
 if ($error) {
   renderResult(false, "Spotify returned an error: {$error}");
 }
-if (!$code || !$state || $state !== $expectedState) {
+if (!$code || !$nonce || $nonce !== $expectedNonce) {
   renderResult(false, "Invalid or missing OAuth state - please try connecting again.");
 }
 unset($_SESSION["encoreradio_spotify_state"]);
@@ -41,10 +48,6 @@ if ($clientId === "" || $clientSecret === "") {
   renderResult(false, "Spotify Client ID/Secret missing from config - save them on the Encore Radio page first.");
 }
 
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$redirectUri = "{$scheme}://{$host}/plugin.php?plugin=fpp-EncoreRadio&nopage=1&page=www/spotify_callback.php";
-
 $ch = curl_init("https://accounts.spotify.com/api/token");
 curl_setopt_array($ch, [
   CURLOPT_RETURNTRANSFER => true,
@@ -53,7 +56,7 @@ curl_setopt_array($ch, [
   CURLOPT_POSTFIELDS => http_build_query([
     "grant_type" => "authorization_code",
     "code" => $code,
-    "redirect_uri" => $redirectUri,
+    "redirect_uri" => ER_SPOTIFY_FIXED_REDIRECT_URI,
   ]),
   CURLOPT_TIMEOUT => 10,
 ]);
