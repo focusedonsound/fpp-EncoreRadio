@@ -367,6 +367,10 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                   <input type="text" id="er-spotify-search" class="form-control form-control-sm" placeholder="Search playlists (yours or public)..." style="width:100%; max-width:320px;" />
                   <button type="button" class="er-btn" onclick="erSearchSpotify()"><i class="fas fa-fw fa-magnifying-glass"></i> Search</button>
                 </div>
+                <div class="d-flex gap-2 flex-wrap align-items-center mt-2">
+                  <input type="text" id="er-spotify-link" class="form-control form-control-sm" placeholder="...or paste a playlist link (open.spotify.com/playlist/...)" style="width:100%; max-width:400px;" />
+                  <button type="button" class="er-btn er-btn-secondary" onclick="erUseSpotifyLink()"><i class="fas fa-fw fa-link"></i> Use Link</button>
+                </div>
                 <div id="er-spotify-results" class="mt-2"></div>
                 <div class="mt-2">
                   Selected playlist: <strong id="er-spotify-selected-name"><?php echo htmlspecialchars($cfg["spotify"]["playlistName"]); ?></strong>
@@ -583,7 +587,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       return;
     }
 
-    resultsDiv.innerHTML = '';
+    resultsDiv.innerHTML = j.message ? ('<div class="small text-muted mb-1">' + j.message + '</div>') : '';
     j.results.forEach(function (pl) {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -598,6 +602,32 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       };
       resultsDiv.appendChild(btn);
     });
+  }
+
+  async function erUseSpotifyLink() {
+    const input = document.getElementById('er-spotify-link');
+    const link = input.value.trim();
+    const resultsDiv = document.getElementById('er-spotify-results');
+    if (!link) { resultsDiv.innerHTML = 'Paste a playlist link first.'; return; }
+    resultsDiv.innerHTML = 'Looking up...';
+
+    const res = await fetch(erUrl('spotify_playlist_lookup.php') + '&url=' + encodeURIComponent(link), { cache: 'no-store' });
+    const j = await erReadJson(res);
+    if (j.status !== 'OK') {
+      resultsDiv.innerHTML = j.message || 'Could not look up that playlist.';
+      return;
+    }
+    document.getElementById('er-spotify-playlistUri').value = j.uri;
+    document.getElementById('er-spotify-playlistName').value = j.name;
+    document.getElementById('er-spotify-selected-name').textContent = j.name;
+    resultsDiv.innerHTML = '';
+    const found = document.createElement('div');
+    found.className = 'small';
+    found.style.color = '#198754';
+    found.innerHTML = '<i class="fas fa-fw fa-circle-check"></i> ';
+    found.appendChild(document.createTextNode('Found "' + j.name + '" (' + j.trackCount + ' tracks) - selected below.'));
+    resultsDiv.appendChild(found);
+    input.value = '';
   }
 
   function erShowAnnounceMode() {

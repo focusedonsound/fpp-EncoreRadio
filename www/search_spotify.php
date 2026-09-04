@@ -67,7 +67,10 @@ foreach (($data["items"] ?? []) as $pl) {
   $results[] = [
     "uri" => $uri,
     "name" => $name,
-    "trackCount" => $pl["tracks"]["total"] ?? 0,
+    // Spotify renamed this playlist-object field from "tracks" to "items"
+    // at some point after this was first written - confirmed against the
+    // live API, not documented anywhere obvious.
+    "trackCount" => $pl["items"]["total"] ?? ($pl["tracks"]["total"] ?? 0),
     "mine" => true,
   ];
 }
@@ -75,10 +78,17 @@ foreach (($data["items"] ?? []) as $pl) {
 // Global catalog search (public playlists only) - only worth doing once
 // there's an actual query; browsing the owner's own list above already
 // covers the empty-query case.
+//
+// limit is capped at 10 here - Spotify's playlist search silently 400s
+// ("Invalid limit") above that despite most other Search API object types
+// allowing up to 50, confirmed against the live API rather than assumed.
+$searchMessage = "";
 if ($query !== "") {
-  $searchUrl = "https://api.spotify.com/v1/search?type=playlist&limit=20&q=" . urlencode($query);
+  $searchUrl = "https://api.spotify.com/v1/search?type=playlist&limit=10&q=" . urlencode($query);
   [$searchHttpCode, $searchData] = spotifyGet($searchUrl, $token);
-  if ($searchHttpCode === 200 && $searchData !== null) {
+  if ($searchHttpCode !== 200 || $searchData === null) {
+    $searchMessage = "Catalog search failed (HTTP {$searchHttpCode}) - showing your own playlists only.";
+  } else {
     foreach (($searchData["playlists"]["items"] ?? []) as $pl) {
       if (!is_array($pl)) continue; // Spotify's search results can include null entries
       $uri = (string)($pl["uri"] ?? "");
@@ -88,11 +98,11 @@ if ($query !== "") {
       $results[] = [
         "uri" => $uri,
         "name" => (string)($pl["name"] ?? "") . ($owner !== "" ? " (by {$owner})" : ""),
-        "trackCount" => $pl["tracks"]["total"] ?? 0,
+        "trackCount" => $pl["items"]["total"] ?? ($pl["tracks"]["total"] ?? 0),
         "mine" => false,
       ];
     }
   }
 }
 
-respond("OK", $results);
+respond("OK", $results, $searchMessage);
