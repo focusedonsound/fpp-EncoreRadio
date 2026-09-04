@@ -61,11 +61,25 @@ fi
 
 # Isolated pianobar config (own HOME) so this plugin never touches a
 # system-wide pianobar config another user/process might have.
+#
+# autostart_station is pianobar's own real config option for this (matched
+# by exact station ID via PianoFindStationById - see src/main.c/settings.c
+# in PromyLOPh/pianobar) - not something invented here. The previous
+# approach tried to answer pianobar's interactive "Select station:" prompt
+# over its control fifo with "s<id>", which is invalid input on two counts:
+# that prompt only accepts a plain numeric LIST POSITION, or otherwise
+# treats the text as a station-NAME substring filter (confirmed by reading
+# BarUiSelectStation() in src/ui.c) - a raw numeric station ID matches
+# neither, so pianobar just sat at that prompt forever, never actually
+# starting playback despite the process staying alive.
 cat > "${PIANOBAR_HOME}/.config/pianobar/config" <<EOF
 user = ${USERNAME}
 password = ${PASSWORD}
 audio_quality = medium
 EOF
+if [[ -n "$STATION_ID" ]]; then
+    echo "autostart_station = ${STATION_ID}" >> "${PIANOBAR_HOME}/.config/pianobar/config"
+fi
 chmod 600 "${PIANOBAR_HOME}/.config/pianobar/config"
 
 ensure_null_sink() {
@@ -82,19 +96,16 @@ ensure_null_sink() {
 start_pianobar() {
     [[ -p "$PIANOBAR_CTL" ]] || mkfifo "$PIANOBAR_CTL"
 
-    log "Starting pianobar (station=${STATION_ID:-<default>})"
+    log "Starting pianobar (station=${STATION_ID:-no station configured, using Pandora default})"
     HOME="$PIANOBAR_HOME" PULSE_SINK="$SINK_NAME" \
         nohup pianobar < "$PIANOBAR_CTL" >> "$LOG_FILE" 2>&1 &
     echo $! > "$PIANOBAR_PID"
 
     # Keep the control fifo open for writes so pianobar doesn't see EOF
     # and exit; also lets er_stop.sh send a clean 'q' quit command later.
+    # Station selection itself is handled entirely by autostart_station in
+    # the config written above - nothing to send here.
     exec 3>"$PIANOBAR_CTL"
-
-    if [[ -n "$STATION_ID" ]]; then
-        sleep 5
-        echo "s${STATION_ID}" >&3
-    fi
 }
 
 ensure_null_sink
