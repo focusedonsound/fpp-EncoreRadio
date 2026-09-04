@@ -9,6 +9,7 @@
 # Usage:
 #   er_relay.sh start url <source-stream-url>
 #   er_relay.sh start pulse-source <pulse-source-name>   # e.g. a monitor source
+#   er_relay.sh start playlist <ffmpeg-concat-file>      # local files, looped forever
 #   er_relay.sh stop
 #   er_relay.sh status
 
@@ -70,6 +71,17 @@ do_start() {
         pulse-source)
             input_args=(-f pulse -i "$src")
             ;;
+        playlist)
+            # No -stream_loop here - confirmed on real hardware that
+            # ffmpeg's -stream_loop doesn't reliably loop the concat
+            # demuxer back to the start (it plays through correctly once,
+            # then exits with "Operation not permitted" trying to restart
+            # rather than actually looping). netshare_folder.sh works
+            # around this by writing the shuffled file list into the
+            # concat playlist many times over instead, so there's no
+            # separate "reached the end, restart" logic needed here.
+            input_args=(-re -f concat -safe 0 -i "$src")
+            ;;
         *)
             log "ERROR: unknown relay mode: $mode"
             exit 2
@@ -111,7 +123,7 @@ case "${1:-}" in
         fi
         ;;
     *)
-        echo "Usage: $0 {start url <url>|start pulse-source <name>|stop|status}" >&2
+        echo "Usage: $0 {start url <url>|start pulse-source <name>|start playlist <concat-file>|stop|status}" >&2
         exit 1
         ;;
 esac

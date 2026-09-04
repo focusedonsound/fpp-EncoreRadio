@@ -7,6 +7,7 @@ function loadConfig($path) {
     "relay" => ["port" => 8123],
     "volume" => 70,
     "customstream" => ["name" => "", "streamUrl" => ""],
+    "netshare" => ["sharePath" => "", "username" => "", "password" => "", "folder" => ""],
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
@@ -155,8 +156,9 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 </div>
 <p class="text-muted">
   Keep the show's radio station feel going after the lights go dark.
-  A <strong>custom internet radio URL</strong> and <strong>TuneIn</strong>
-  are both free; <strong>Pandora</strong> and <strong>Spotify</strong> are
+  A <strong>custom internet radio URL</strong>, a <strong>network
+  share</strong> of your own music, and <strong>TuneIn</strong> are all
+  free; <strong>Pandora</strong> and <strong>Spotify</strong> are
   premium features. Add FPP Schedule
   entries calling <strong>Encore Radio - Start</strong> /
   <strong>Encore Radio - Stop</strong> for your after-hours window, and
@@ -219,6 +221,10 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                   <label class="form-check-label" for="er-source-customstream"><strong>Internet Radio (URL)</strong> <span class="text-muted small">- free</span></label>
                 </div>
                 <div class="form-check">
+                  <input class="form-check-input" type="radio" name="source" id="er-source-netshare" value="netshare" <?php echo $cfg["source"] === "netshare" ? "checked" : ""; ?> />
+                  <label class="form-check-label" for="er-source-netshare"><strong>Network Share</strong> <span class="text-muted small">- free</span></label>
+                </div>
+                <div class="form-check">
                   <input class="form-check-input" type="radio" name="source" id="er-source-tunein" value="tunein" <?php echo $cfg["source"] === "tunein" ? "checked" : ""; ?> />
                   <label class="form-check-label" for="er-source-tunein"><strong>TuneIn</strong> <span class="text-muted small">- free</span></label>
                 </div>
@@ -250,6 +256,42 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                 <i class="fas fa-fw fa-circle-info"></i>
                 Any plain HTTP/HTTPS internet radio stream URL - handy for a
                 station that isn't in TuneIn's directory. No login required.
+              </p>
+            </td>
+          </tr>
+
+          <tr id="er-netshare-section" style="display:none;">
+            <td colspan="2" style="padding:8px;">
+              <table style="width:100%; max-width:520px;">
+                <tr>
+                  <td class="py-1">Share Path</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="netshare_sharePath" placeholder="//192.168.1.50/Music" value="<?php echo htmlspecialchars($cfg["netshare"]["sharePath"]); ?>" /></td>
+                </tr>
+                <tr>
+                  <td class="py-1">Username</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="netshare_username" placeholder="(leave blank for guest access)" value="<?php echo htmlspecialchars($cfg["netshare"]["username"]); ?>" /></td>
+                </tr>
+                <tr>
+                  <td class="py-1">Password</td>
+                  <td class="py-1">
+                    <div class="d-flex gap-2 align-items-center">
+                      <input type="password" class="form-control form-control-sm" name="netshare_password" id="er-netshare-password"
+                             value="<?php echo $cfg["netshare"]["password"] !== "" ? "__unchanged__" : ""; ?>" />
+                      <button type="button" class="er-btn er-btn-secondary" onclick="erToggleNetsharePassword()"><i class="fas fa-fw fa-eye"></i> Show</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-1">Folder</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="netshare_folder" placeholder="Christmas (leave blank for the share's root)" value="<?php echo htmlspecialchars($cfg["netshare"]["folder"]); ?>" /></td>
+                </tr>
+              </table>
+              <p class="small text-muted mt-2 mb-0">
+                <i class="fas fa-fw fa-circle-info"></i>
+                Any existing SMB/CIFS share - a NAS, or a shared folder from
+                a PC on the same network. Plays every audio file found in
+                the chosen folder (and its subfolders), shuffled, on a
+                loop - nothing needs to be copied onto this device.
               </p>
             </td>
           </tr>
@@ -556,6 +598,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     const source = document.querySelector('input[name="source"]:checked');
     const val = source ? source.value : "";
     document.getElementById('er-customstream-section').style.display = (val === 'customstream') ? 'table-row' : 'none';
+    document.getElementById('er-netshare-section').style.display = (val === 'netshare') ? 'table-row' : 'none';
     document.getElementById('er-tunein-section').style.display = (val === 'tunein') ? 'table-row' : 'none';
     document.getElementById('er-pandora-section').style.display = (val === 'pandora') ? 'table-row' : 'none';
     document.getElementById('er-spotify-section').style.display = (val === 'spotify') ? 'table-row' : 'none';
@@ -564,6 +607,12 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     el.addEventListener('change', erShowSourceSection);
   });
   erShowSourceSection();
+
+  function erToggleNetsharePassword() {
+    const el = document.getElementById('er-netshare-password');
+    if (el.value === '__unchanged__') el.value = '';
+    el.type = (el.type === 'password') ? 'text' : 'password';
+  }
 
   function erToggleSpotifySecret() {
     const el = document.getElementById('er-spotify-secret');
@@ -740,9 +789,10 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     {
       selector: '#er-fieldset-source',
       title: 'Pick a Source',
-      text: 'A custom internet radio URL and TuneIn are both free. Pandora ' +
-        '(a genre/artist station) and Spotify (your own custom playlist) ' +
-        'are both premium features - 10 free trial hours, then a license key.'
+      text: 'A custom internet radio URL, a network share of your own ' +
+        'music, and TuneIn are all free. Pandora (a genre/artist station) ' +
+        'and Spotify (your own custom playlist) are both premium features ' +
+        '- 10 free trial hours, then a license key.'
     },
     {
       selector: '#er-fieldset-volume',

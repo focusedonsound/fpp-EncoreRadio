@@ -58,6 +58,13 @@ fi
 # Relay: always stop last, once nothing should be feeding it anymore.
 "${HERE}/er_relay.sh" stop >/dev/null 2>&1 || true
 
+# Network share: unmount so a changed share/folder/credentials next time
+# starts clean rather than reusing a stale mount.
+NETSHARE_MOUNT="${STATE_DIR}/netshare_mount"
+if mountpoint -q "$NETSHARE_MOUNT" 2>/dev/null; then
+    sudo umount "$NETSHARE_MOUNT" 2>/dev/null || sudo umount -l "$NETSHARE_MOUNT" 2>/dev/null || true
+fi
+
 # Spotify: nothing local to kill (Raspotify is a permanent system service,
 # not something this plugin starts/stops) - just pause playback via the
 # Web API so it doesn't keep going after after-hours mode ends.

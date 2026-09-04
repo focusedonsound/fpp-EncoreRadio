@@ -1,9 +1,10 @@
 # 📻 Encore Radio — After-Hours Streaming for Falcon Player
 
 Keep your show's "radio station" feel going after the lights go dark.
-Encore Radio streams a custom internet radio URL or TuneIn stations
-(free), or Pandora and a custom Spotify playlist (premium), during your
-after-hours window, and can trigger
+Encore Radio streams a custom internet radio URL, a folder of your own
+music from a network share, or TuneIn stations (free), or Pandora and a
+custom Spotify playlist (premium), during your after-hours window, and
+can trigger
 [Announcement Assistant](https://github.com/focusedonsound/fpp-AnnouncementAssistant)
 on a schedule for radio-station-style announcements ("Thanks for tuning in!").
 

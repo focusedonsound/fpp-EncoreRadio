@@ -6,6 +6,12 @@ Every source converges on PulseAudio:
 
 - **Custom Stream**: any plain HTTP/HTTPS internet radio URL the owner
   types in directly, re-streamed through the same local relay as TuneIn.
+- **Network Share**: mounts an existing SMB/CIFS share (`mount.cifs`),
+  shuffles the audio files found in the chosen folder into an ffmpeg
+  concat playlist, and hands that to the local relay too - `-stream_loop
+  -1` makes it loop forever, so it behaves like a continuous station the
+  same way a network stream does. Nothing is copied onto the device, so
+  the library can be far larger than local storage would allow.
 - **TuneIn**: a direct station stream URL, re-streamed through a local
   `ffmpeg` relay (`scripts/er_relay.sh`) so playback always points at a
   stable local URL regardless of the upstream stream's own reliability.
@@ -57,8 +63,8 @@ this, the announcement would have played over the stream at full volume).
 
 ## Free vs. premium
 
-A custom stream URL, TuneIn, a single source, and basic announcement
-scheduling are always free, no registration. Pandora and Spotify (custom playlists) get a
+A custom stream URL, a network share, TuneIn, a single source, and basic
+announcement scheduling are always free, no registration. Pandora and Spotify (custom playlists) get a
 10-cumulative-hour trial, then require registering an email and entering
 a license key - see `docs/configuration.md`.
 

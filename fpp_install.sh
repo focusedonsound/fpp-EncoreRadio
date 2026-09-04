@@ -57,7 +57,8 @@ install_pkgs_if_missing() {
   # plugin has to be able to stand this up on its own rather than assuming
   # Announcement Assistant already did it.
   # jq/python3: JSON config helpers, matches AA's convention
-  local pkgs=(ffmpeg pianobar pulseaudio pulseaudio-utils libasound2-plugins curl python3 jq)
+  # cifs-utils: mount.cifs, for the Network Share (SMB) source
+  local pkgs=(ffmpeg pianobar pulseaudio pulseaudio-utils libasound2-plugins curl python3 jq cifs-utils)
 
   for p in "${pkgs[@]}"; do
     if ! dpkg -s "$p" >/dev/null 2>&1; then
@@ -67,7 +68,7 @@ install_pkgs_if_missing() {
   done
 
   if [[ "$missing" -eq 1 ]]; then
-    log "Installing required packages (ffmpeg, pianobar, pulseaudio, curl, python3, jq)…"
+    log "Installing required packages (ffmpeg, pianobar, pulseaudio, curl, python3, jq, cifs-utils)…"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
     apt-get install -y --no-install-recommends "${pkgs[@]}"

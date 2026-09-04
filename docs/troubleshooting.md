@@ -7,9 +7,9 @@ timestamped, tagged lines there (`[er_relay]`, `[pulse-play]`, `[spotify]`,
 ## Nothing plays after "Encore Radio - Start"
 
 - Check the log for the actual error - `customstream_stream.sh`/
-  `tunein_stream.sh`/`pandora_pianobar.sh`/`spotify_web.sh` all log a clear
-  reason before exiting (no station/URL configured, bad credentials, device
-  not paired, ...).
+  `netshare_folder.sh`/`tunein_stream.sh`/`pandora_pianobar.sh`/
+  `spotify_web.sh` all log a clear reason before exiting (no station/URL
+  configured, bad credentials, device not paired, ...).
 - Confirm a source is actually selected and saved on the plugin page.
 - For custom stream/TuneIn/Pandora: `pactl list sink-inputs` should show an `ffplay`
   entry once playback starts. If it doesn't, PulseAudio itself may not be
@@ -17,6 +17,21 @@ timestamped, tagged lines there (`[er_relay]`, `[pulse-play]`, `[spotify]`,
   `announcementassistant-pulse.service` if Announcement Assistant is also
   installed; whichever installed second owns the shared socket - see
   below).
+
+## Network Share: "failed to mount" or "no audio files found"
+
+- Confirm the share path is exactly right - `//192.168.1.50/Music`, not a
+  `smb://` URL or a Windows-style `\\` path.
+- Try mounting it manually to get the real error: `sudo mount -t cifs
+  "//host/share" /mnt -o username=...,password=...` (or `-o guest` with no
+  username configured) - `mount.cifs` (from `cifs-utils`) reports the
+  actual failure reason (auth, unreachable host, wrong protocol version)
+  more clearly than the plugin log can.
+- The configured folder is relative to the share's root, not an absolute
+  filesystem path - if the share itself already points at `\\host\Music`,
+  leave Folder blank rather than typing `Music` again.
+- Only `.mp3`, `.flac`, `.m4a`, `.aac`, `.ogg`, and `.wav` files are picked
+  up, searched recursively through subfolders.
 
 ## Announcements aren't ducking the stream
 

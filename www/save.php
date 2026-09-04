@@ -19,6 +19,7 @@ function defaultConfig() {
     "relay" => ["port" => 8123],
     "volume" => 70,
     "customstream" => ["name" => "", "streamUrl" => ""],
+    "netshare" => ["sharePath" => "", "username" => "", "password" => "", "folder" => ""],
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
@@ -53,7 +54,7 @@ if (!($cfg["license"]["registered"] ?? false)) {
 }
 
 $source = trim((string)($_POST["source"] ?? ""));
-if (!in_array($source, ["", "customstream", "tunein", "pandora", "spotify"], true)) {
+if (!in_array($source, ["", "customstream", "netshare", "tunein", "pandora", "spotify"], true)) {
   respond(false, "Invalid source: $source");
 }
 $cfg["source"] = $source;
@@ -65,6 +66,16 @@ $cfg["volume"] = $volume;
 
 $cfg["customstream"]["name"]      = trim((string)($_POST["customstream_name"] ?? $cfg["customstream"]["name"]));
 $cfg["customstream"]["streamUrl"] = trim((string)($_POST["customstream_streamUrl"] ?? $cfg["customstream"]["streamUrl"]));
+
+$cfg["netshare"]["sharePath"] = trim((string)($_POST["netshare_sharePath"] ?? $cfg["netshare"]["sharePath"]));
+$cfg["netshare"]["username"]  = trim((string)($_POST["netshare_username"] ?? $cfg["netshare"]["username"]));
+// Only overwrite the stored password if the field was actually changed -
+// same masked-field convention as pandora_password/spotify_clientSecret.
+$postedSharePassword = (string)($_POST["netshare_password"] ?? "");
+if ($postedSharePassword !== "" && $postedSharePassword !== "__unchanged__") {
+  $cfg["netshare"]["password"] = $postedSharePassword;
+}
+$cfg["netshare"]["folder"] = trim((string)($_POST["netshare_folder"] ?? $cfg["netshare"]["folder"]));
 
 $cfg["tunein"]["stationId"]   = trim((string)($_POST["tunein_stationId"] ?? $cfg["tunein"]["stationId"]));
 $cfg["tunein"]["stationName"] = trim((string)($_POST["tunein_stationName"] ?? $cfg["tunein"]["stationName"]));

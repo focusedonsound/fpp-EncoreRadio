@@ -40,11 +40,13 @@ except: print('')
 log "START source=$SOURCE"
 
 case "$SOURCE" in
-    customstream|tunein|pandora)
+    customstream|netshare|tunein|pandora)
         # These feed the local relay; playback is a separate step via
         # er_play_pulse.sh once the relay is actually accepting connections.
         if [[ "$SOURCE" == "customstream" ]]; then
             bash "${PLUGIN_DIR}/scripts/backends/customstream_stream.sh"
+        elif [[ "$SOURCE" == "netshare" ]]; then
+            bash "${PLUGIN_DIR}/scripts/backends/netshare_folder.sh"
         elif [[ "$SOURCE" == "tunein" ]]; then
             bash "${PLUGIN_DIR}/scripts/backends/tunein_stream.sh"
         else

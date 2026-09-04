@@ -6,10 +6,13 @@ if you ever need to inspect it).
 
 | Key | Description |
 |---|---|
-| `source` | `customstream`, `tunein`, `pandora`, or `spotify` |
+| `source` | `customstream`, `netshare`, `tunein`, `pandora`, or `spotify` |
 | `volume` | 0-100, applied to whichever source is playing |
-| `relay.port` | Local port the custom-stream/TuneIn/Pandora relay listens on (default 8123) |
+| `relay.port` | Local port the custom-stream/network-share/TuneIn/Pandora relay listens on (default 8123) |
 | `customstream.name` / `streamUrl` | A directly-typed internet radio stream URL and label |
+| `netshare.sharePath` | SMB/CIFS share, e.g. `//192.168.1.50/Music` |
+| `netshare.username` / `password` | Leave username blank for guest access |
+| `netshare.folder` | Subfolder within the share to play (blank = share root, searched recursively) |
 | `tunein.stationId` / `stationName` / `streamUrl` | Set by the station search picker |
 | `pandora.username` / `password` / `stationId` / `stationName` | Pandora account + chosen station |
 | `spotify.clientId` / `clientSecret` | Your own Spotify Developer App credentials |
