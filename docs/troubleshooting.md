@@ -33,6 +33,20 @@ timestamped, tagged lines there (`[er_relay]`, `[pulse-play]`, `[spotify]`,
 - Only `.mp3`, `.flac`, `.m4a`, `.aac`, `.ogg`, and `.wav` files are picked
   up, searched recursively through subfolders.
 
+## Source Rotation/Fallback isn't switching sources
+
+- Both need a valid trial/license - check the log for a "Rotation/Fallback
+  blocked: ..." line, same premium gate as Pandora/Spotify.
+- Rotation only switches when a schedule entry actually matches the
+  current day/time - if nothing matches, the Source picked at the top of
+  the page plays instead, which is expected, not a bug.
+- The watchdog (`[playback-scheduler]` lines in the log) only polls every
+  30 seconds - a swap won't be instant.
+- Fallback only advances when the *current* source's playback has
+  actually died (a dead process, or for Spotify a Web API check that it's
+  no longer the active/playing device) - a source that's merely quiet
+  between tracks isn't "dead."
+
 ## Announcements aren't ducking the stream
 
 - Confirm Announcement Assistant is actually installed and a slot has a

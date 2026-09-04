@@ -13,6 +13,10 @@ if you ever need to inspect it).
 | `netshare.sharePath` | SMB/CIFS share, e.g. `//192.168.1.50/Music` |
 | `netshare.username` / `password` | Leave username blank for guest access |
 | `netshare.folder` | Subfolder within the share to play (blank = share root, searched recursively) |
+| `rotation.enabled` | Premium - play a different source on a day/time schedule instead of always `source` |
+| `rotation.entries` | Array of `{days: [...], startTime, endTime, source}` - `days` are lowercase 3-letter (`mon`..`sun`); `endTime <= startTime` wraps past midnight |
+| `fallback.enabled` | Premium - auto-recover to the next source if the current one fails to start or dies mid-play |
+| `fallback.chain` | Ordered array of source names to try in sequence, e.g. `["spotify", "pandora", "tunein", "netshare"]` |
 | `tunein.stationId` / `stationName` / `streamUrl` | Set by the station search picker |
 | `pandora.username` / `password` / `stationId` / `stationName` | Pandora account + chosen station |
 | `spotify.clientId` / `clientSecret` | Your own Spotify Developer App credentials |

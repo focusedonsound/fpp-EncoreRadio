@@ -10,17 +10,15 @@ on a schedule for radio-station-style announcements ("Thanks for tuning in!").
 
 ## Status
 
-Feature-complete: free custom-stream/TuneIn playback, premium Pandora/Spotify (Spotify
-via Raspotify + your own Spotify Developer App), Announcement
-Assistant integration, trial-hour/license gating against a small
+Feature-complete: free custom-stream/network-share/TuneIn playback,
+premium Pandora/Spotify (Spotify via Raspotify + your own Spotify
+Developer App), premium Source Rotation (a different source on a
+day/time schedule) and Source Fallback (auto-recovery if a source fails
+to start or dies mid-play), Announcement Assistant integration,
+trial-hour/license gating against a small
 [license server](https://github.com/focusedonsound/fpp-EncoreRadio-license-server),
 and a first-run guided walkthrough on the plugin page. Verified on real
-FPP 9.5 and 10.0 hardware end-to-end, except the Spotify OAuth/pairing/
-playback path, which needs a real Spotify Premium account to test - see
-`docs/` for details.
-
-Not yet built: multi-source day/time rotation (deferred from the Spotify
-milestone).
+FPP 9.5 and 10.0 hardware end-to-end.
 
 ## How it works
 

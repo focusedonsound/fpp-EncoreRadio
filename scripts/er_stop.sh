@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Encore Radio - Stop everything: playback, relay, and whichever backend
-# is running. Safe to call even if nothing is running (best-effort).
+# Encore Radio - Stop everything: playback, relay, backend, announcement
+# scheduler, and the Rotation/Fallback watchdog. Safe to call even if
+# nothing is running (best-effort).
 
 set -uo pipefail
 
@@ -13,9 +14,10 @@ log() { echo "[$(ts)] [er_stop] $*" >> "$LOG_FILE"; }
 
 log "Stop requested"
 
-# Header status indicator marker (see api.php / er_cmd_start.sh) - remove
-# first so the top-bar icon disappears immediately, even if something
-# below this point fails.
+# Header status indicator marker (see api.php / er_start_source.sh) -
+# remove first so the top-bar icon disappears immediately, even if
+# something below this point fails. er_stop_playback.sh also removes it,
+# but this is intentionally redundant/first for that reason.
 rm -f "${STATE_DIR}/active.json"
 
 # Announcement scheduler loop - stop it before touching audio, otherwise a
@@ -28,65 +30,25 @@ rm -f "${STATE_DIR}/active.json"
 # until the foreground child returns, and evidently never acted on it
 # afterwards either) - same reason er_relay.sh already falls back to -9,
 # applied here too.
-if [[ -f "${STATE_DIR}/announce_scheduler.pid" ]]; then
-    sched_pid="$(cat "${STATE_DIR}/announce_scheduler.pid" 2>/dev/null)"
-    if [[ -n "$sched_pid" ]]; then
-        kill "$sched_pid" 2>/dev/null || true
-        sleep 0.5
-        kill -9 "$sched_pid" 2>/dev/null || true
+kill_pid_file() {
+    local pid_file="$1"
+    if [[ -f "$pid_file" ]]; then
+        local pid
+        pid="$(cat "$pid_file" 2>/dev/null)"
+        if [[ -n "$pid" ]]; then
+            kill "$pid" 2>/dev/null || true
+            sleep 0.5
+            kill -9 "$pid" 2>/dev/null || true
+        fi
+        rm -f "$pid_file"
     fi
-    rm -f "${STATE_DIR}/announce_scheduler.pid"
-fi
+}
+kill_pid_file "${STATE_DIR}/announce_scheduler.pid"
+kill_pid_file "${STATE_DIR}/playback_scheduler.pid"
 
-# Playback: kill ffplay (same path on both FPP versions - see
-# er_cmd_start.sh for why there's no separate Stream Slot path).
-if [[ -f "${STATE_DIR}/playback.pid" ]]; then
-    kill "$(cat "${STATE_DIR}/playback.pid" 2>/dev/null)" 2>/dev/null || true
-    rm -f "${STATE_DIR}/playback.pid"
-fi
-
-# Pianobar: ask nicely via its control fifo, then fall back to kill.
-if [[ -f "${STATE_DIR}/pianobar.pid" ]]; then
-    if [[ -p "${STATE_DIR}/pianobar.fifo" ]]; then
-        echo "q" > "${STATE_DIR}/pianobar.fifo" 2>/dev/null || true
-        sleep 1
-    fi
-    kill "$(cat "${STATE_DIR}/pianobar.pid" 2>/dev/null)" 2>/dev/null || true
-    rm -f "${STATE_DIR}/pianobar.pid"
-fi
-
-# Relay: always stop last, once nothing should be feeding it anymore.
-"${HERE}/er_relay.sh" stop >/dev/null 2>&1 || true
-
-# Network share: unmount so a changed share/folder/credentials next time
-# starts clean rather than reusing a stale mount.
-NETSHARE_MOUNT="${STATE_DIR}/netshare_mount"
-if mountpoint -q "$NETSHARE_MOUNT" 2>/dev/null; then
-    sudo umount "$NETSHARE_MOUNT" 2>/dev/null || sudo umount -l "$NETSHARE_MOUNT" 2>/dev/null || true
-fi
-
-# Spotify: nothing local to kill (Raspotify is a permanent system service,
-# not something this plugin starts/stops) - just pause playback via the
-# Web API so it doesn't keep going after after-hours mode ends.
-CFG_FILE="/home/fpp/media/config/encoreradio.json"
-SOURCE="$(python3 -c "
-import json
-try:    print(json.load(open('$CFG_FILE')).get('source', ''))
-except: print('')
-" 2>/dev/null || echo "")"
-if [[ "$SOURCE" == "spotify" ]]; then
-    TOKEN="$(bash "${HERE}/spotify_token.sh" 2>/dev/null)"
-    if [[ -n "$TOKEN" ]]; then
-        curl -s -m 10 -X PUT "https://api.spotify.com/v1/me/player/pause" \
-            -H "Authorization: Bearer ${TOKEN}" >> "$LOG_FILE" 2>&1 || true
-    fi
-fi
-
-# Premium usage tracking: Pandora and Spotify are both gated (the custom
-# stream and TuneIn never are), so both need their trial-hour session
-# finalized here.
-if [[ "$SOURCE" == "spotify" || "$SOURCE" == "pandora" ]]; then
-    bash "${HERE}/er_track_usage.sh" finalize
-fi
+# Playback (relay, backend process, network share mount, Spotify
+# pause+usage finalize) - shared with the Rotation/Fallback watchdog, see
+# er_stop_playback.sh for why it's a separate script.
+bash "${HERE}/er_stop_playback.sh"
 
 log "Stop complete"

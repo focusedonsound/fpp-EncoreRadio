@@ -520,6 +520,83 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     </div>
   </div>
 
+  <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-rotation">
+    <div class="fppTableContents">
+      <table class="fppSelectableRowTable" style="width:100%;">
+        <thead>
+          <tr><th colspan="2" style="padding:8px;"><i class="fas fa-fw fa-clock-rotate-left"></i> Source Rotation (Premium)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="2" style="padding:8px;">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="rotation_enabled" id="er-rotation-enabled" value="1" <?php echo $cfg["rotation"]["enabled"] ? "checked" : ""; ?> />
+              <label class="form-check-label" for="er-rotation-enabled">Play a different source depending on the day/time, instead of always the one picked in Source above</label>
+            </div>
+            <p class="small text-muted mt-2 mb-0">
+              <i class="fas fa-fw fa-circle-info"></i>
+              Each row plays its chosen source during the checked days and
+              time window. An end time earlier than the start time wraps
+              past midnight (e.g. 22:00-06:00). If no row matches right
+              now, the Source picked above plays instead.
+            </p>
+          </td></tr>
+          <tr><td colspan="2" style="padding:8px;">
+            <div id="er-rotation-rows"></div>
+            <button type="button" class="er-btn er-btn-secondary mt-2" onclick="erAddRotationRow()"><i class="fas fa-fw fa-plus"></i> Add Rotation Entry</button>
+            <input type="hidden" name="rotation_entries_json" id="er-rotation-json" />
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-fallback">
+    <div class="fppTableContents">
+      <table class="fppSelectableRowTable" style="width:100%;">
+        <thead>
+          <tr><th colspan="2" style="padding:8px;"><i class="fas fa-fw fa-shield-halved"></i> Source Fallback (Premium)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="2" style="padding:8px;">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="fallback_enabled" id="er-fallback-enabled" value="1" <?php echo $cfg["fallback"]["enabled"] ? "checked" : ""; ?> />
+              <label class="form-check-label" for="er-fallback-enabled">If a source fails to start (or dies mid-play), automatically try the next one in this order</label>
+            </div>
+            <p class="small text-muted mt-2 mb-0">
+              <i class="fas fa-fw fa-circle-info"></i>
+              Checked roughly every 30 seconds. Put Network Share or TuneIn
+              last as a guaranteed backstop, since neither depends on an
+              external account being reachable.
+            </p>
+          </td></tr>
+          <?php
+            $sourceLabels = [
+              "" => "-- none --",
+              "customstream" => "Internet Radio (URL)",
+              "netshare" => "Network Share",
+              "tunein" => "TuneIn",
+              "pandora" => "Pandora",
+              "spotify" => "Spotify",
+            ];
+            $chain = $cfg["fallback"]["chain"];
+          ?>
+          <?php for ($i = 1; $i <= 5; $i++): $picked = $chain[$i - 1] ?? ""; ?>
+            <tr>
+              <td class="py-1" style="padding:8px; width:160px;">Priority <?php echo $i; ?></td>
+              <td class="py-1" style="padding:8px;">
+                <select name="fallback_priority_<?php echo $i; ?>" class="form-control form-control-sm" style="max-width:280px;">
+                  <?php foreach ($sourceLabels as $val => $label): ?>
+                    <option value="<?php echo htmlspecialchars($val); ?>" <?php echo $picked === $val ? "selected" : ""; ?>><?php echo htmlspecialchars($label); ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </td>
+            </tr>
+          <?php endfor; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-license">
     <div class="fppTableContents">
       <table class="fppSelectableRowTable" style="width:100%;">
@@ -529,7 +606,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
         <tbody>
           <tr><td colspan="2" style="padding:8px;">
             <?php if ($hasLicenseKey): ?>
-              <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> License key on file. Premium features (Pandora, Spotify, multi-source rotation) are unlocked.</p>
+              <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> License key on file. Premium features (Pandora, Spotify, Source Rotation, Source Fallback) are unlocked.</p>
             <?php else: ?>
               <p class="mb-0">
                 <strong><?php echo $trialHoursRemaining; ?> premium hours remaining</strong>
@@ -679,6 +756,102 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     input.value = '';
   }
 
+  // --- Source Rotation (premium) --------------------------------------
+  var erRotationEntries = <?php echo json_encode($cfg["rotation"]["entries"]); ?>;
+  var ER_ROTATION_DAYS = [
+    ['mon', 'M'], ['tue', 'T'], ['wed', 'W'], ['thu', 'T'], ['fri', 'F'], ['sat', 'S'], ['sun', 'S']
+  ];
+  var ER_ROTATION_SOURCES = [
+    ['customstream', 'Internet Radio (URL)'], ['netshare', 'Network Share'],
+    ['tunein', 'TuneIn'], ['pandora', 'Pandora'], ['spotify', 'Spotify']
+  ];
+
+  function erRenderRotationRows() {
+    var container = document.getElementById('er-rotation-rows');
+    container.innerHTML = '';
+    erRotationEntries.forEach(function (entry, idx) {
+      var row = document.createElement('div');
+      row.className = 'd-flex gap-2 flex-wrap align-items-center mb-2 pb-2';
+      row.style.borderBottom = '1px solid rgba(128,128,128,0.25)';
+
+      var daysWrap = document.createElement('div');
+      daysWrap.className = 'd-flex gap-1';
+      ER_ROTATION_DAYS.forEach(function (d) {
+        var lbl = document.createElement('label');
+        lbl.className = 'small text-center';
+        lbl.style.width = '20px';
+        lbl.title = d[0];
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = entry.days.indexOf(d[0]) !== -1;
+        cb.onchange = function () {
+          var i = entry.days.indexOf(d[0]);
+          if (cb.checked && i === -1) entry.days.push(d[0]);
+          else if (!cb.checked && i !== -1) entry.days.splice(i, 1);
+        };
+        lbl.appendChild(document.createElement('br'));
+        lbl.insertBefore(cb, lbl.firstChild);
+        lbl.appendChild(document.createTextNode(d[1]));
+        daysWrap.appendChild(lbl);
+      });
+
+      var startInput = document.createElement('input');
+      startInput.type = 'time';
+      startInput.className = 'form-control form-control-sm';
+      startInput.style.width = '110px';
+      startInput.value = entry.startTime || '22:00';
+      startInput.onchange = function () { entry.startTime = startInput.value; };
+
+      var toLabel = document.createElement('span');
+      toLabel.className = 'small text-muted';
+      toLabel.textContent = 'to';
+
+      var endInput = document.createElement('input');
+      endInput.type = 'time';
+      endInput.className = 'form-control form-control-sm';
+      endInput.style.width = '110px';
+      endInput.value = entry.endTime || '23:00';
+      endInput.onchange = function () { entry.endTime = endInput.value; };
+
+      var sourceSelect = document.createElement('select');
+      sourceSelect.className = 'form-control form-control-sm';
+      sourceSelect.style.width = '180px';
+      ER_ROTATION_SOURCES.forEach(function (s) {
+        var opt = document.createElement('option');
+        opt.value = s[0];
+        opt.textContent = s[1];
+        if (entry.source === s[0]) opt.selected = true;
+        sourceSelect.appendChild(opt);
+      });
+      if (!entry.source) entry.source = ER_ROTATION_SOURCES[2][0]; // tunein
+      sourceSelect.onchange = function () { entry.source = sourceSelect.value; };
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'er-btn er-btn-danger';
+      removeBtn.innerHTML = '<i class="fas fa-fw fa-trash"></i>';
+      removeBtn.onclick = function () {
+        erRotationEntries.splice(idx, 1);
+        erRenderRotationRows();
+      };
+
+      row.appendChild(daysWrap);
+      row.appendChild(startInput);
+      row.appendChild(toLabel);
+      row.appendChild(endInput);
+      row.appendChild(sourceSelect);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    });
+  }
+
+  function erAddRotationRow() {
+    erRotationEntries.push({ days: [], startTime: '22:00', endTime: '23:00', source: 'tunein' });
+    erRenderRotationRows();
+  }
+
+  erRenderRotationRows();
+
   function erShowAnnounceMode() {
     const mode = document.querySelector('input[name="announce_mode"]:checked');
     const val = mode ? mode.value : "cadence";
@@ -751,6 +924,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
   async function erSave() {
     erSetStatus("Saving...");
+    document.getElementById('er-rotation-json').value = JSON.stringify(erRotationEntries);
     const form = document.getElementById('erForm');
     const fd = new FormData(form);
     const res = await fetch(erUrl('save.php'), { method: 'POST', body: fd, cache: 'no-store' });

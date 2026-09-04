@@ -1,27 +1,24 @@
 #!/bin/bash
 # FPP Command: Encore Radio - Start
 #
-# Reads the configured source, starts that backend (which feeds the local
-# relay), then plays the relay via PulseAudio.
-#
-# One playback path for both FPP versions: originally this branched on
-# FPP 10.x's "Play Media"/Stream Slot command vs. FPP 9.x's PulseAudio sink,
-# but real-hardware testing showed that command's actual C++ implementation
-# uses `filesrc location=...` (FalconChristmas/fpp
-# src/mediaoutput/GStreamerOut.cpp) - a local-file-only GStreamer source, not
-# a network-capable one - so it can never play our relay's http:// URL. FPP
-# 10.x's PipeWire stack ships its own pulse-compat socket
-# (pipewire-pulse), confirmed working end-to-end on a real 10.x box, so
-# plain PulseAudio playback (er_play_pulse.sh) works unchanged on both
-# versions and there's no need to detect which one we're on.
+# Picks the source to play - normally just config's flat "source" field,
+# but Rotation (premium) can pick something different for right now on a
+# schedule, and Fallback (premium) walks a chain of sources if the first
+# choice fails to start - then starts it via er_start_source.sh, starts
+# the announcement scheduler, and (if Rotation/Fallback are enabled) the
+# playback_scheduler.sh watchdog that keeps re-checking afterward.
 
-set -euo pipefail
+set -uo pipefail
 
 CFG_FILE="/home/fpp/media/config/encoreradio.json"
 LOG_FILE="/home/fpp/media/logs/EncoreRadio.log"
-PLUGIN_DIR="$(dirname "$(dirname "$0")")"
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
+PLUGIN_DIR="$(dirname "$(dirname "$0")")"
+HERE="${PLUGIN_DIR}/scripts"
 mkdir -p "$STATE_DIR" 2>/dev/null || true
+
+# shellcheck source=../scripts/lib_playback_schedule.sh
+source "${HERE}/lib_playback_schedule.sh"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [fpp-cmd-start] $*" >> "$LOG_FILE"; }
@@ -31,68 +28,85 @@ if [[ ! -f "$CFG_FILE" ]]; then
     exit 1
 fi
 
-SOURCE="$(python3 -c "
+CONFIGURED_SOURCE="$(python3 -c "
 import json
 try:    print(json.load(open('$CFG_FILE')).get('source', ''))
 except: print('')
 " 2>/dev/null || echo "")"
 
-log "START source=$SOURCE"
+ROT_ON="$(er_feature_enabled rotation)"
+FB_ON="$(er_feature_enabled fallback)"
+ROTATION_OR_FALLBACK_ACTIVE=0
 
-case "$SOURCE" in
-    customstream|netshare|tunein|pandora)
-        # These feed the local relay; playback is a separate step via
-        # er_play_pulse.sh once the relay is actually accepting connections.
-        if [[ "$SOURCE" == "customstream" ]]; then
-            bash "${PLUGIN_DIR}/scripts/backends/customstream_stream.sh"
-        elif [[ "$SOURCE" == "netshare" ]]; then
-            bash "${PLUGIN_DIR}/scripts/backends/netshare_folder.sh"
-        elif [[ "$SOURCE" == "tunein" ]]; then
-            bash "${PLUGIN_DIR}/scripts/backends/tunein_stream.sh"
-        else
-            bash "${PLUGIN_DIR}/scripts/backends/pandora_pianobar.sh"
+if [[ "$ROT_ON" == "True" || "$FB_ON" == "True" ]]; then
+    GATE_MSG="$(bash "${HERE}/er_premium_gate.sh" check)" && GATE_RC=0 || GATE_RC=$?
+    if [[ "$GATE_RC" -eq 0 ]]; then
+        ROTATION_OR_FALLBACK_ACTIVE=1
+    else
+        log "Rotation/Fallback configured but not usable right now: $GATE_MSG - using configured source only"
+    fi
+fi
+
+INITIAL_SOURCE="$CONFIGURED_SOURCE"
+if [[ "$ROTATION_OR_FALLBACK_ACTIVE" -eq 1 && "$ROT_ON" == "True" ]]; then
+    ROTATION_PICK="$(er_rotation_target)"
+    if [[ -n "$ROTATION_PICK" ]]; then
+        INITIAL_SOURCE="$ROTATION_PICK"
+        log "Rotation: schedule picks '$ROTATION_PICK' for right now"
+    else
+        log "Rotation: no schedule entry matches right now - using configured source"
+    fi
+fi
+
+if [[ -z "$INITIAL_SOURCE" ]]; then
+    log "ERROR: no source configured (encoreradio.json 'source' is empty, and no Rotation entry matches right now)"
+    exit 1
+fi
+
+log "START source=$INITIAL_SOURCE"
+
+if bash "${HERE}/er_start_source.sh" "$INITIAL_SOURCE"; then
+    STARTED_SOURCE="$INITIAL_SOURCE"
+elif [[ "$ROTATION_OR_FALLBACK_ACTIVE" -eq 1 && "$FB_ON" == "True" ]]; then
+    log "$INITIAL_SOURCE failed to start - trying Fallback chain"
+    STARTED_SOURCE=""
+    TRY="$INITIAL_SOURCE"
+    while :; do
+        TRY="$(er_next_fallback_target "$TRY")"
+        [[ -z "$TRY" ]] && break
+        log "Fallback: trying $TRY"
+        if bash "${HERE}/er_start_source.sh" "$TRY"; then
+            STARTED_SOURCE="$TRY"
+            break
         fi
-        sleep 2
-        bash "${PLUGIN_DIR}/scripts/er_play_pulse.sh"
-        ;;
-    spotify)
-        # No relay involved - Raspotify (already running as its own system
-        # service) outputs straight to PulseAudio; this just tells the Web
-        # API to start playback on it.
-        bash "${PLUGIN_DIR}/scripts/backends/spotify_web.sh"
-        ;;
-    *)
-        log "ERROR: no source configured (encoreradio.json 'source' is empty)"
+    done
+    if [[ -z "$STARTED_SOURCE" ]]; then
+        log "ERROR: every source in the Fallback chain failed to start"
         exit 1
-        ;;
-esac
+    fi
+else
+    log "ERROR: $INITIAL_SOURCE failed to start (Fallback not enabled)"
+    exit 1
+fi
 
-# Reaching here means the case block above didn't exit nonzero, i.e. the
-# backend actually started successfully - write the marker api.php's
-# headerIndicator endpoint checks for (FPP's top-bar status icon). Removed
-# by er_stop.sh.
-python3 -c "
-import json
-try:
-    cfg = json.load(open('$CFG_FILE'))
-except Exception:
-    cfg = {}
-labels = {
-    'customstream': (cfg.get('customstream', {}).get('name') or 'Custom Stream'),
-    'tunein': (cfg.get('tunein', {}).get('stationName') or 'TuneIn'),
-    'pandora': (cfg.get('pandora', {}).get('stationName') or 'Pandora'),
-    'spotify': (cfg.get('spotify', {}).get('playlistName') or 'Spotify'),
-}
-active = {'source': '$SOURCE', 'label': labels.get('$SOURCE', '$SOURCE')}
-json.dump(active, open('${STATE_DIR}/active.json', 'w'))
-" 2>/dev/null || true
+log "Playing: $STARTED_SOURCE"
 
 ANNOUNCE_PID_FILE="${STATE_DIR}/announce_scheduler.pid"
-
 if [[ -f "$ANNOUNCE_PID_FILE" ]] && kill -0 "$(cat "$ANNOUNCE_PID_FILE" 2>/dev/null)" 2>/dev/null; then
     log "Announcement scheduler already running, leaving it be"
 else
-    nohup bash "${PLUGIN_DIR}/scripts/er_announce_scheduler.sh" >> "$LOG_FILE" 2>&1 &
+    nohup bash "${HERE}/er_announce_scheduler.sh" >> "$LOG_FILE" 2>&1 &
     echo $! > "$ANNOUNCE_PID_FILE"
     log "Announcement scheduler started pid=$(cat "$ANNOUNCE_PID_FILE")"
+fi
+
+PLAYBACK_SCHED_PID_FILE="${STATE_DIR}/playback_scheduler.pid"
+if [[ "$ROTATION_OR_FALLBACK_ACTIVE" -eq 1 ]]; then
+    if [[ -f "$PLAYBACK_SCHED_PID_FILE" ]] && kill -0 "$(cat "$PLAYBACK_SCHED_PID_FILE" 2>/dev/null)" 2>/dev/null; then
+        log "Playback scheduler already running, leaving it be"
+    else
+        nohup bash "${HERE}/er_playback_scheduler.sh" >> "$LOG_FILE" 2>&1 &
+        echo $! > "$PLAYBACK_SCHED_PID_FILE"
+        log "Playback scheduler started pid=$(cat "$PLAYBACK_SCHED_PID_FILE")"
+    fi
 fi

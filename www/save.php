@@ -20,6 +20,8 @@ function defaultConfig() {
     "volume" => 70,
     "customstream" => ["name" => "", "streamUrl" => ""],
     "netshare" => ["sharePath" => "", "username" => "", "password" => "", "folder" => ""],
+    "rotation" => ["enabled" => false, "entries" => []],
+    "fallback" => ["enabled" => false, "chain" => []],
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
@@ -104,6 +106,42 @@ if ($postedSecret !== "" && $postedSecret !== "__unchanged__") {
 }
 $cfg["spotify"]["playlistUri"] = trim((string)($_POST["spotify_playlistUri"] ?? $cfg["spotify"]["playlistUri"]));
 $cfg["spotify"]["playlistName"] = trim((string)($_POST["spotify_playlistName"] ?? $cfg["spotify"]["playlistName"]));
+
+// Rotation (premium) - entries are built client-side into a JSON array
+// (day checkboxes + start/end time + source per row don't map cleanly
+// onto plain form fields) and posted as one hidden field.
+$cfg["rotation"]["enabled"] = isset($_POST["rotation_enabled"]) && $_POST["rotation_enabled"] === "1";
+$validSources = ["customstream", "netshare", "tunein", "pandora", "spotify"];
+$validDays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+$rotationEntries = [];
+$rotationRaw = json_decode((string)($_POST["rotation_entries_json"] ?? "[]"), true);
+if (is_array($rotationRaw)) {
+  foreach ($rotationRaw as $e) {
+    if (!is_array($e)) continue;
+    $source = (string)($e["source"] ?? "");
+    $start = (string)($e["startTime"] ?? "");
+    $end = (string)($e["endTime"] ?? "");
+    $days = array_values(array_intersect((array)($e["days"] ?? []), $validDays));
+    if (!in_array($source, $validSources, true)) continue;
+    if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $start)) continue;
+    if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $end)) continue;
+    if (empty($days)) continue;
+    $rotationEntries[] = ["days" => $days, "startTime" => $start, "endTime" => $end, "source" => $source];
+  }
+}
+$cfg["rotation"]["entries"] = $rotationEntries;
+
+// Fallback (premium) - five ordered priority dropdowns rather than a
+// drag-and-drop list, simplest reliable UI for a handful of fixed options.
+$cfg["fallback"]["enabled"] = isset($_POST["fallback_enabled"]) && $_POST["fallback_enabled"] === "1";
+$fallbackChain = [];
+for ($i = 1; $i <= 5; $i++) {
+  $pick = trim((string)($_POST["fallback_priority_{$i}"] ?? ""));
+  if ($pick === "" || !in_array($pick, $validSources, true)) continue;
+  if (in_array($pick, $fallbackChain, true)) continue; // no duplicates
+  $fallbackChain[] = $pick;
+}
+$cfg["fallback"]["chain"] = $fallbackChain;
 
 // License (M4) - email/key are the only fields this form edits;
 // trialSecondsUsed is only ever written by er_track_usage.sh.

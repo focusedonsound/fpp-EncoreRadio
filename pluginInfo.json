@@ -2,7 +2,7 @@
   "repoName": "fpp-EncoreRadio",
   "name": "Encore Radio",
   "author": "Nick Scilingo Nick S(NJ)",
-  "description": "Keep the radio station feel going after the light show ends. Streams a custom internet radio URL, TuneIn stations, or a folder of music from a network share (free), or Pandora and Spotify playlists (premium), through your after-hours schedule, with Announcement Assistant integration for scheduled station-style announcements.",
+  "description": "Keep the radio station feel going after the light show ends. Streams a custom internet radio URL, TuneIn stations, or a folder of music from a network share (free), or Pandora and Spotify playlists (premium), through your after-hours schedule. Premium also unlocks Source Rotation (a different source on a day/time schedule) and Source Fallback (auto-recovery if a source fails), with Announcement Assistant integration for scheduled station-style announcements.",
   "homeURL": "https://github.com/focusedonsound/fpp-EncoreRadio",
   "srcURL": "https://github.com/focusedonsound/fpp-EncoreRadio.git",
   "bugURL": "https://github.com/focusedonsound/fpp-EncoreRadio/issues",
