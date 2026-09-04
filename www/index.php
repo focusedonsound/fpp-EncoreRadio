@@ -13,7 +13,7 @@ function loadConfig($path) {
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
     "license" => ["email" => "", "registered" => false, "key" => "", "trialSecondsUsed" => 0],
-    "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
+    "ui" => ["onboardingSeen" => false],
   ];
   if (file_exists($path)) {
     $j = json_decode(@file_get_contents($path), true);
@@ -167,11 +167,6 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
 <p>
   <a href="#" id="er-onboarding-replay" class="small me-2"><i class="fas fa-fw fa-circle-play"></i> Replay walkthrough</a>
-  <label class="small text-muted">
-    <input type="checkbox" name="ui_onboardingTourEnabled" id="er-onboardingTourEnabled" form="erForm"
-           <?php echo $cfg["ui"]["onboardingTourEnabled"] ? "checked" : ""; ?> />
-    Show this walkthrough for new visits to this page
-  </label>
 </p>
 
 <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-signup">
@@ -1243,8 +1238,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   });
 
   if (<?php echo $registered ? "true" : "false"; ?> &&
-      !<?php echo $cfg["ui"]["onboardingSeen"] ? "true" : "false"; ?> &&
-      document.getElementById('er-onboardingTourEnabled').checked) {
+      !<?php echo $cfg["ui"]["onboardingSeen"] ? "true" : "false"; ?>) {
     erTourStart();
   }
 </script>
