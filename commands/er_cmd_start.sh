@@ -20,6 +20,8 @@ set -euo pipefail
 CFG_FILE="/home/fpp/media/config/encoreradio.json"
 LOG_FILE="/home/fpp/media/logs/EncoreRadio.log"
 PLUGIN_DIR="$(dirname "$(dirname "$0")")"
+STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
+mkdir -p "$STATE_DIR" 2>/dev/null || true
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [fpp-cmd-start] $*" >> "$LOG_FILE"; }
@@ -63,8 +65,26 @@ case "$SOURCE" in
         ;;
 esac
 
-STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
-mkdir -p "$STATE_DIR" 2>/dev/null || true
+# Reaching here means the case block above didn't exit nonzero, i.e. the
+# backend actually started successfully - write the marker api.php's
+# headerIndicator endpoint checks for (FPP's top-bar status icon). Removed
+# by er_stop.sh.
+python3 -c "
+import json
+try:
+    cfg = json.load(open('$CFG_FILE'))
+except Exception:
+    cfg = {}
+labels = {
+    'customstream': (cfg.get('customstream', {}).get('name') or 'Custom Stream'),
+    'tunein': (cfg.get('tunein', {}).get('stationName') or 'TuneIn'),
+    'pandora': (cfg.get('pandora', {}).get('stationName') or 'Pandora'),
+    'spotify': (cfg.get('spotify', {}).get('playlistName') or 'Spotify'),
+}
+active = {'source': '$SOURCE', 'label': labels.get('$SOURCE', '$SOURCE')}
+json.dump(active, open('${STATE_DIR}/active.json', 'w'))
+" 2>/dev/null || true
+
 ANNOUNCE_PID_FILE="${STATE_DIR}/announce_scheduler.pid"
 
 if [[ -f "$ANNOUNCE_PID_FILE" ]] && kill -0 "$(cat "$ANNOUNCE_PID_FILE" 2>/dev/null)" 2>/dev/null; then

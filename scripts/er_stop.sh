@@ -13,6 +13,11 @@ log() { echo "[$(ts)] [er_stop] $*" >> "$LOG_FILE"; }
 
 log "Stop requested"
 
+# Header status indicator marker (see api.php / er_cmd_start.sh) - remove
+# first so the top-bar icon disappears immediately, even if something
+# below this point fails.
+rm -f "${STATE_DIR}/active.json"
+
 # Announcement scheduler loop - stop it before touching audio, otherwise a
 # cadence tick landing mid-teardown could fire AA against a slot that's
 # about to have nothing left to duck.
