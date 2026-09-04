@@ -364,7 +364,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
               <?php if ($spotifyConnected): ?>
                 <div class="d-flex gap-2 flex-wrap align-items-center">
-                  <input type="text" id="er-spotify-search" class="form-control form-control-sm" placeholder="Search your playlists..." style="width:100%; max-width:320px;" />
+                  <input type="text" id="er-spotify-search" class="form-control form-control-sm" placeholder="Search playlists (yours or public)..." style="width:100%; max-width:320px;" />
                   <button type="button" class="er-btn" onclick="erSearchSpotify()"><i class="fas fa-fw fa-magnifying-glass"></i> Search</button>
                 </div>
                 <div id="er-spotify-results" class="mt-2"></div>
@@ -590,7 +590,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       btn.className = 'er-btn';
       btn.style.display = 'block';
       btn.style.margin = '4px 0';
-      btn.textContent = pl.name + ' (' + pl.trackCount + ' tracks)';
+      btn.textContent = (pl.mine ? '★ ' : '') + pl.name + ' (' + pl.trackCount + ' tracks)';
       btn.onclick = function () {
         document.getElementById('er-spotify-playlistUri').value = pl.uri;
         document.getElementById('er-spotify-playlistName').value = pl.name;
