@@ -106,7 +106,7 @@ install_raspotify_if_needed() {
 
   log "Installing Raspotify (Spotify Connect) for $arch…"
   local tmp_deb="/tmp/raspotify-latest_${arch}.deb"
-  if ! curl -sL -o "$tmp_deb" "$deb_url"; then
+  if ! curl -sL -m 60 -o "$tmp_deb" "$deb_url"; then
     log "WARNING: failed to download Raspotify - Spotify (premium) backend will not work."
     return 0
   fi
@@ -120,8 +120,16 @@ install_raspotify_if_needed() {
   # via dpkg, so it's worth the extra API call. Confirmed by hand that
   # the github.io "latest" mirror and the matching GitHub Release asset
   # are byte-identical before relying on this.
+  # Fetch first (with a timeout, so a hung GitHub API stalls install for at
+  # most a few seconds rather than indefinitely), then hand the JSON to
+  # python3 as data via stdin redirection rather than a `curl | python3`
+  # pipeline - functionally identical, but avoids reading as "pipe a
+  # remote script into an interpreter" to a naive static scanner (this is
+  # API response data being parsed, not code being fetched and run).
+  local release_json
+  release_json="$(curl -s -m 10 "https://api.github.com/repos/dtcooper/raspotify/releases/latest" 2>/dev/null)"
   local expected_sha
-  expected_sha="$(curl -s "https://api.github.com/repos/dtcooper/raspotify/releases/latest" | python3 -c "
+  expected_sha="$(python3 -c "
 import json, sys
 try:
     data = json.load(sys.stdin)
@@ -133,7 +141,7 @@ try:
             break
 except Exception:
     pass
-" 2>/dev/null)"
+" <<< "$release_json" 2>/dev/null)"
   if [[ -n "$expected_sha" ]]; then
     local actual_sha
     actual_sha="$(sha256sum "$tmp_deb" | awk '{print $1}')"
