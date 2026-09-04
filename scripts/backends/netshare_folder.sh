@@ -9,14 +9,15 @@
 # local relay every other source uses (er_relay.sh's "playlist" mode loops
 # it forever, so it behaves like a continuous station).
 #
-# `mount` needs root. An FPP Schedule entry firing this via fppd already
-# runs as root, but the "Start Now" button on the plugin page goes through
-# PHP-FPM instead, which runs as the unprivileged `fpp` user - confirmed on
-# real hardware (mount.cifs failed with "permission denied" under that
-# path). `fpp` already has passwordless sudo on every FPP image (standard,
-# same as the Raspberry Pi OS default user), so `sudo mount`/`sudo umount`
-# works identically from both invocation paths - a no-op elevation when
-# already root, a real one otherwise.
+# `mount` needs root. This script is only ever reached via an actual FPP
+# Command (commands/er_cmd_start.sh, invoked by fppd - see www/start.php,
+# which dispatches through FPP's own POST /api/command/{name} API rather
+# than exec()'ing scripts directly), and fppd's own Command execution
+# already runs as root - confirmed by reading FalconChristmas/fpp's
+# ScriptCommand::run() (Plugins.cpp), which forks+execve()s the plugin
+# script from fppd's own (root) process. No `sudo` needed, and none used -
+# the FPP plugin guidelines explicitly disallow it ("install/hook scripts
+# already run as root" - the same is true of Commands).
 
 set -euo pipefail
 
@@ -53,15 +54,15 @@ mkdir -p "$MOUNT_POINT" "$STATE_DIR" 2>/dev/null || true
 # Clean remount every time rather than trusting a stale mount from a
 # previous run - the share/folder/credentials may have changed since.
 if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
-    sudo umount "$MOUNT_POINT" 2>/dev/null || sudo umount -l "$MOUNT_POINT" 2>/dev/null || true
+    umount "$MOUNT_POINT" 2>/dev/null || umount -l "$MOUNT_POINT" 2>/dev/null || true
 fi
 
 # CIFS has no native POSIX permissions, so without uid/gid/file_mode/
-# dir_mode the kernel driver defaults the mount to root-only-readable -
-# confirmed on real hardware: the mount itself succeeds fine (that part
-# runs elevated via sudo), but ffmpeg reading the files afterward (as the
-# unprivileged `fpp` user, same as everything else this plugin runs as)
-# then fails with "Operation not permitted". Map ownership to fpp instead.
+# dir_mode the kernel driver defaults the mount to root-only-readable.
+# This script and everything it starts (the relay, ffplay) all run as
+# root via fppd's own Command execution, so that alone wouldn't actually
+# block anything here - mapped to fpp anyway so the mounted files are
+# readable the same way regardless of which user ends up touching them.
 FPP_UID="$(id -u fpp)"
 FPP_GID="$(id -g fpp)"
 if [[ -n "$USERNAME" ]]; then
@@ -71,7 +72,7 @@ else
 fi
 
 log "Mounting ${SHARE_PATH} (user=${USERNAME:-guest})"
-if ! sudo mount -t cifs "$SHARE_PATH" "$MOUNT_POINT" -o "$MOUNT_OPTS" 2>>"$LOG_FILE"; then
+if ! mount -t cifs "$SHARE_PATH" "$MOUNT_POINT" -o "$MOUNT_OPTS" 2>>"$LOG_FILE"; then
     log "ERROR: failed to mount ${SHARE_PATH} - check share path/credentials, and that the share is reachable from this device"
     exit 1
 fi

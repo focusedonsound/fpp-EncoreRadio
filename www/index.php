@@ -956,6 +956,28 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     return j;
   }
 
+  // Start/Stop dispatch through FPP's own command API (see start.php/
+  // stop.php) rather than exec()'ing scripts directly. That call
+  // genuinely blocks until the script finishes (confirmed on real
+  // hardware), so by the time it returns the outcome is already decided -
+  // but the response itself carries no real detail (FPP's Command
+  // protocol always reports a fixed "complete" regardless of the script's
+  // actual exit code), so a quick check of api.php's headerIndicator
+  // endpoint (the same one driving the top-bar icon) is what actually
+  // confirms success/failure and gets a real status message.
+  async function erCheckPlaybackState(wantActive) {
+    for (let i = 0; i < 2; i++) {
+      try {
+        const res = await fetch('/api/plugin/fpp-EncoreRadio/headerIndicator', { cache: 'no-store' });
+        const j = await res.json();
+        const isActive = !!(j && j.visible);
+        if (isActive === wantActive) return { ok: true, indicator: j };
+      } catch (e) { /* retry once */ }
+      await new Promise(function (r) { setTimeout(r, 800); });
+    }
+    return { ok: false };
+  }
+
   async function erStart() {
     // Save first - otherwise "Start Now" plays whatever was last saved to
     // disk, not whatever's currently picked/typed on the page (e.g. a
@@ -965,17 +987,32 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       erSetStatus("Not started - save failed: " + (saveResult.message || saveResult.status));
       return;
     }
-    erSetStatus("Starting...");
+    erSetStatus("Starting - this can take a few seconds...");
     const res = await fetch(erUrl('start.php'), { cache: 'no-store' });
     const j = await erReadJson(res);
-    erSetStatus(j.ok ? "Started." : ("Error: " + (j.error || "Start script exited with no output - check EncoreRadio.log")));
+    if (!j.ok) {
+      erSetStatus("Error: " + (j.error || "could not dispatch Start"));
+      return;
+    }
+    const result = await erCheckPlaybackState(true);
+    if (result.ok) {
+      const label = result.indicator.tooltip ? result.indicator.tooltip.replace(/^Encore Radio: /, '') : '';
+      erSetStatus(label ? ("Started: " + label) : "Started.");
+    } else {
+      erSetStatus("Dispatched, but playback isn't showing as active - check EncoreRadio.log.");
+    }
   }
 
   async function erStop() {
     erSetStatus("Stopping...");
     const res = await fetch(erUrl('stop.php'), { cache: 'no-store' });
     const j = await erReadJson(res);
-    erSetStatus(j.ok ? "Stopped." : ("Error: " + (j.error || "unknown")));
+    if (!j.ok) {
+      erSetStatus("Error: " + (j.error || "could not dispatch Stop"));
+      return;
+    }
+    const result = await erCheckPlaybackState(false);
+    erSetStatus(result.ok ? "Stopped." : "Dispatched - stopping may still be finishing up.");
   }
 
   // --- First-run guided tour -----------------------------------------

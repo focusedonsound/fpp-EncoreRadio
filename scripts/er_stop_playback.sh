@@ -53,9 +53,12 @@ fi
 
 "${HERE}/er_relay.sh" stop >/dev/null 2>&1 || true
 
+# No sudo needed - this script is only ever reached via an actual FPP
+# Command, which fppd already runs as root (see netshare_folder.sh for the
+# full explanation).
 NETSHARE_MOUNT="${STATE_DIR}/netshare_mount"
 if mountpoint -q "$NETSHARE_MOUNT" 2>/dev/null; then
-    sudo umount "$NETSHARE_MOUNT" 2>/dev/null || sudo umount -l "$NETSHARE_MOUNT" 2>/dev/null || true
+    umount "$NETSHARE_MOUNT" 2>/dev/null || umount -l "$NETSHARE_MOUNT" 2>/dev/null || true
 fi
 
 if [[ "$ACTIVE_SOURCE" == "spotify" ]]; then

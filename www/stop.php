@@ -3,20 +3,26 @@ declare(strict_types=1);
 
 header('Content-Type: application/json');
 
-$SCRIPT = __DIR__ . '/../commands/er_cmd_stop.sh';
-if (!file_exists($SCRIPT)) {
-    echo json_encode(['ok' => false, 'error' => 'Stop script missing']);
+// See start.php for why this dispatches through FPP's own command API
+// instead of exec()'ing the script directly.
+$ch = curl_init('http://localhost/api/command/' . rawurlencode('Encore Radio - Stop'));
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_POST => true,
+    CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+    CURLOPT_POSTFIELDS => '[]',
+    CURLOPT_TIMEOUT => 60,
+]);
+$response = curl_exec($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+$curlError = curl_error($ch);
+curl_close($ch);
+
+$dispatchOk = ($httpCode === 200);
+
+if (!$dispatchOk) {
+    echo json_encode(['ok' => false, 'error' => "Could not dispatch Stop (HTTP {$httpCode}): " . ($response !== false && $response !== '' ? $response : $curlError)]);
     exit;
 }
 
-$cmd = escapeshellcmd($SCRIPT);
-$out = [];
-$rc  = 0;
-exec($cmd . ' 2>&1', $out, $rc);
-
-if ($rc !== 0) {
-    echo json_encode(['ok' => false, 'error' => implode("\n", $out)]);
-    exit;
-}
-
-echo json_encode(['ok' => true, 'message' => implode("\n", $out)]);
+echo json_encode(['ok' => true, 'message' => 'Stop dispatched.']);
