@@ -20,6 +20,14 @@ trial-hour/license gating against a small
 and a first-run guided walkthrough on the plugin page. Verified on real
 FPP 9.5 and 10.0 hardware end-to-end.
 
+Planned, not built yet: RDS Now-Playing (premium) - broadcasting the
+current track/station to an FM transmitter's RDS display. Needs a
+transmitter-model picker (there's no single standard protocol across FM
+transmitter hardware - VAST's `vastfmt` and EDM's transmitters are
+different integrations) and real hardware to verify against, neither of
+which is available yet - a "Coming Soon" placeholder is on the plugin
+page in the meantime.
+
 ## How it works
 
 - Pick a source (custom stream URL, TuneIn station, Pandora station, or a

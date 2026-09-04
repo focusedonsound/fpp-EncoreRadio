@@ -597,6 +597,29 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     </div>
   </div>
 
+  <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-rds" style="opacity:0.6;">
+    <div class="fppTableContents">
+      <table class="fppSelectableRowTable" style="width:100%;">
+        <thead>
+          <tr><th style="padding:8px;"><i class="fas fa-fw fa-tower-broadcast"></i> RDS Now-Playing (Premium) <span class="er-pill" style="background-color:#6c757d;">Coming Soon</span></th></tr>
+        </thead>
+        <tbody>
+          <tr><td style="padding:8px;">
+            <p class="small text-muted mb-0">
+              <i class="fas fa-fw fa-circle-info"></i>
+              Broadcasts the currently playing track/station to your FM
+              transmitter's RDS display, the same way a real radio station
+              does. There's no single standard protocol across FM
+              transmitter hardware, so this needs a transmitter-model
+              picker (VAST vastfmt, EDM, etc.) rather than one fixed
+              integration - planned, not built yet.
+            </p>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-license">
     <div class="fppTableContents">
       <table class="fppSelectableRowTable" style="width:100%;">
