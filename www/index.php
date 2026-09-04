@@ -707,13 +707,22 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     const res = await fetch(erUrl('save.php'), { method: 'POST', body: fd, cache: 'no-store' });
     const j = await erReadJson(res);
     erSetStatus(j.message || j.status || "OK");
+    return j;
   }
 
   async function erStart() {
+    // Save first - otherwise "Start Now" plays whatever was last saved to
+    // disk, not whatever's currently picked/typed on the page (e.g. a
+    // playlist just selected via search/link but never explicitly saved).
+    const saveResult = await erSave();
+    if (saveResult.status && saveResult.status !== 'OK') {
+      erSetStatus("Not started - save failed: " + (saveResult.message || saveResult.status));
+      return;
+    }
     erSetStatus("Starting...");
     const res = await fetch(erUrl('start.php'), { cache: 'no-store' });
     const j = await erReadJson(res);
-    erSetStatus(j.ok ? "Started." : ("Error: " + (j.error || "unknown")));
+    erSetStatus(j.ok ? "Started." : ("Error: " + (j.error || "Start script exited with no output - check EncoreRadio.log")));
   }
 
   async function erStop() {
