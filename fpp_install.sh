@@ -325,7 +325,7 @@ post_install_notes() {
 
 Next steps:
   1) Open the "Encore Radio" page in the FPP menu and pick a source
-     (TuneIn is free; Pandora and Spotify are premium).
+     (a custom stream URL and TuneIn are free; Pandora and Spotify are premium).
   2) Add two FPP Schedule entries: one calling "Encore Radio - Start" for
      when your show ends, and one calling "Encore Radio - Stop" for when
      you want streaming to end (e.g. overnight).

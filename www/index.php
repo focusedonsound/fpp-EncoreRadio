@@ -6,6 +6,7 @@ function loadConfig($path) {
     "source" => "",
     "relay" => ["port" => 8123],
     "volume" => 70,
+    "customstream" => ["name" => "", "streamUrl" => ""],
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
@@ -154,8 +155,9 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 </div>
 <p class="text-muted">
   Keep the show's radio station feel going after the lights go dark.
-  <strong>TuneIn</strong> is free; <strong>Pandora</strong> and
-  <strong>Spotify</strong> are premium features. Add FPP Schedule
+  A <strong>custom internet radio URL</strong> and <strong>TuneIn</strong>
+  are both free; <strong>Pandora</strong> and <strong>Spotify</strong> are
+  premium features. Add FPP Schedule
   entries calling <strong>Encore Radio - Start</strong> /
   <strong>Encore Radio - Stop</strong> for your after-hours window, and
   you're set.
@@ -213,6 +215,10 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
             <td colspan="2" style="padding:8px;">
               <div class="d-flex gap-3 flex-wrap">
                 <div class="form-check">
+                  <input class="form-check-input" type="radio" name="source" id="er-source-customstream" value="customstream" <?php echo $cfg["source"] === "customstream" ? "checked" : ""; ?> />
+                  <label class="form-check-label" for="er-source-customstream"><strong>Internet Radio (URL)</strong> <span class="text-muted small">- free</span></label>
+                </div>
+                <div class="form-check">
                   <input class="form-check-input" type="radio" name="source" id="er-source-tunein" value="tunein" <?php echo $cfg["source"] === "tunein" ? "checked" : ""; ?> />
                   <label class="form-check-label" for="er-source-tunein"><strong>TuneIn</strong> <span class="text-muted small">- free</span></label>
                 </div>
@@ -225,6 +231,26 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                   <label class="form-check-label" for="er-source-spotify"><strong>Spotify</strong> <span class="text-muted small">- premium</span></label>
                 </div>
               </div>
+            </td>
+          </tr>
+
+          <tr id="er-customstream-section" style="display:none;">
+            <td colspan="2" style="padding:8px;">
+              <table style="width:100%; max-width:520px;">
+                <tr>
+                  <td class="py-1">Station Name (label only)</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="customstream_name" value="<?php echo htmlspecialchars($cfg["customstream"]["name"]); ?>" /></td>
+                </tr>
+                <tr>
+                  <td class="py-1">Stream URL</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="customstream_streamUrl" placeholder="http://example.com/stream.mp3" value="<?php echo htmlspecialchars($cfg["customstream"]["streamUrl"]); ?>" /></td>
+                </tr>
+              </table>
+              <p class="small text-muted mt-2 mb-0">
+                <i class="fas fa-fw fa-circle-info"></i>
+                Any plain HTTP/HTTPS internet radio stream URL - handy for a
+                station that isn't in TuneIn's directory. No login required.
+              </p>
             </td>
           </tr>
 
@@ -523,6 +549,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   function erShowSourceSection() {
     const source = document.querySelector('input[name="source"]:checked');
     const val = source ? source.value : "";
+    document.getElementById('er-customstream-section').style.display = (val === 'customstream') ? 'table-row' : 'none';
     document.getElementById('er-tunein-section').style.display = (val === 'tunein') ? 'table-row' : 'none';
     document.getElementById('er-pandora-section').style.display = (val === 'pandora') ? 'table-row' : 'none';
     document.getElementById('er-spotify-section').style.display = (val === 'spotify') ? 'table-row' : 'none';
@@ -678,9 +705,9 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     {
       selector: '#er-fieldset-source',
       title: 'Pick a Source',
-      text: 'TuneIn is free - just pick a station. Pandora (a genre/artist ' +
-        'station) and Spotify (your own custom playlist) are both premium ' +
-        'features - 10 free trial hours, then a license key.'
+      text: 'A custom internet radio URL and TuneIn are both free. Pandora ' +
+        '(a genre/artist station) and Spotify (your own custom playlist) ' +
+        'are both premium features - 10 free trial hours, then a license key.'
     },
     {
       selector: '#er-fieldset-volume',

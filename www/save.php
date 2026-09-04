@@ -18,6 +18,7 @@ function defaultConfig() {
     "source" => "",
     "relay" => ["port" => 8123],
     "volume" => 70,
+    "customstream" => ["name" => "", "streamUrl" => ""],
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
@@ -52,7 +53,7 @@ if (!($cfg["license"]["registered"] ?? false)) {
 }
 
 $source = trim((string)($_POST["source"] ?? ""));
-if (!in_array($source, ["", "tunein", "pandora", "spotify"], true)) {
+if (!in_array($source, ["", "customstream", "tunein", "pandora", "spotify"], true)) {
   respond(false, "Invalid source: $source");
 }
 $cfg["source"] = $source;
@@ -61,6 +62,9 @@ $volume = isset($_POST["volume"]) ? (int)$_POST["volume"] : $cfg["volume"];
 if ($volume < 0) $volume = 0;
 if ($volume > 100) $volume = 100;
 $cfg["volume"] = $volume;
+
+$cfg["customstream"]["name"]      = trim((string)($_POST["customstream_name"] ?? $cfg["customstream"]["name"]));
+$cfg["customstream"]["streamUrl"] = trim((string)($_POST["customstream_streamUrl"] ?? $cfg["customstream"]["streamUrl"]));
 
 $cfg["tunein"]["stationId"]   = trim((string)($_POST["tunein_stationId"] ?? $cfg["tunein"]["stationId"]));
 $cfg["tunein"]["stationName"] = trim((string)($_POST["tunein_stationName"] ?? $cfg["tunein"]["stationName"]));

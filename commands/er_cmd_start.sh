@@ -38,10 +38,12 @@ except: print('')
 log "START source=$SOURCE"
 
 case "$SOURCE" in
-    tunein|pandora)
+    customstream|tunein|pandora)
         # These feed the local relay; playback is a separate step via
         # er_play_pulse.sh once the relay is actually accepting connections.
-        if [[ "$SOURCE" == "tunein" ]]; then
+        if [[ "$SOURCE" == "customstream" ]]; then
+            bash "${PLUGIN_DIR}/scripts/backends/customstream_stream.sh"
+        elif [[ "$SOURCE" == "tunein" ]]; then
             bash "${PLUGIN_DIR}/scripts/backends/tunein_stream.sh"
         else
             bash "${PLUGIN_DIR}/scripts/backends/pandora_pianobar.sh"

@@ -6,11 +6,12 @@ timestamped, tagged lines there (`[er_relay]`, `[pulse-play]`, `[spotify]`,
 
 ## Nothing plays after "Encore Radio - Start"
 
-- Check the log for the actual error - `tunein_stream.sh`/
-  `pandora_pianobar.sh`/`spotify_web.sh` all log a clear reason before
-  exiting (no station configured, bad credentials, device not paired, ...).
+- Check the log for the actual error - `customstream_stream.sh`/
+  `tunein_stream.sh`/`pandora_pianobar.sh`/`spotify_web.sh` all log a clear
+  reason before exiting (no station/URL configured, bad credentials, device
+  not paired, ...).
 - Confirm a source is actually selected and saved on the plugin page.
-- For TuneIn/Pandora: `pactl list sink-inputs` should show an `ffplay`
+- For custom stream/TuneIn/Pandora: `pactl list sink-inputs` should show an `ffplay`
   entry once playback starts. If it doesn't, PulseAudio itself may not be
   running - check `systemctl status encoreradio-pulse.service` (or
   `announcementassistant-pulse.service` if Announcement Assistant is also
@@ -53,8 +54,8 @@ Connect/devices list. Also confirm `raspotify.service` is actually running
 
 Expected - Pandora and Spotify are both premium, gated behind a shared
 10-cumulative-hour trial (or a valid license key). Register on the Encore
-Radio page and enter a license key once you have one. TuneIn is
-unaffected; it's never gated.
+Radio page and enter a license key once you have one. The custom stream
+and TuneIn sources are unaffected; they're never gated.
 
 ## Relay port already in use / stale process
 

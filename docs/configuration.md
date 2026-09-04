@@ -6,9 +6,10 @@ if you ever need to inspect it).
 
 | Key | Description |
 |---|---|
-| `source` | `tunein`, `pandora`, or `spotify` |
+| `source` | `customstream`, `tunein`, `pandora`, or `spotify` |
 | `volume` | 0-100, applied to whichever source is playing |
-| `relay.port` | Local port the TuneIn/Pandora relay listens on (default 8123) |
+| `relay.port` | Local port the custom-stream/TuneIn/Pandora relay listens on (default 8123) |
+| `customstream.name` / `streamUrl` | A directly-typed internet radio stream URL and label |
 | `tunein.stationId` / `stationName` / `streamUrl` | Set by the station search picker |
 | `pandora.username` / `password` / `stationId` / `stationName` | Pandora account + chosen station |
 | `spotify.clientId` / `clientSecret` | Your own Spotify Developer App credentials |
@@ -29,7 +30,7 @@ Add these to FPP's own Scheduler (Content Setup > Scheduler):
 
 - **Encore Radio - Start** - begins playback of the configured source.
 - **Encore Radio - Stop** - stops playback (pauses Spotify via the Web API,
-  kills the relay/ffplay for TuneIn/Pandora).
+  kills the relay/ffplay for the custom stream/TuneIn/Pandora).
 
 ## Spotify setup (premium)
 

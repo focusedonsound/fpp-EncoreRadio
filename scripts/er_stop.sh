@@ -70,8 +70,9 @@ if [[ "$SOURCE" == "spotify" ]]; then
     fi
 fi
 
-# Premium usage tracking: Pandora and Spotify are both gated (TuneIn never
-# is), so both need their trial-hour session finalized here.
+# Premium usage tracking: Pandora and Spotify are both gated (the custom
+# stream and TuneIn never are), so both need their trial-hour session
+# finalized here.
 if [[ "$SOURCE" == "spotify" || "$SOURCE" == "pandora" ]]; then
     bash "${HERE}/er_track_usage.sh" finalize
 fi
