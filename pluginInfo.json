@@ -8,6 +8,83 @@
   "bugURL": "https://github.com/focusedonsound/fpp-EncoreRadio/issues",
   "iconURL": "https://raw.githubusercontent.com/focusedonsound/fpp-EncoreRadio/master/icon.png",
   "allowUpdates": 1,
+  "privacy": {
+    "summary": "Streams your chosen station or shared library (free) or Pandora/Spotify (premium) through FPP, and reports registration/usage to Encore Radio's license server.",
+    "sends": [
+      {
+        "to": "encoreradio-license.nscilingo.workers.dev",
+        "what": "your email, a hardware ID (CPU serial/machine-id), license key, and premium usage seconds",
+        "why": "registration and premium license validation/usage tracking",
+        "alwaysOn": false
+      },
+      {
+        "to": "opml.radiotime.com",
+        "what": "your TuneIn station search text",
+        "why": "TuneIn station search and playback",
+        "alwaysOn": false
+      },
+      {
+        "to": "accounts.spotify.com and api.spotify.com",
+        "what": "your Spotify account tokens and search/playback requests",
+        "why": "Spotify playback and search (premium)",
+        "alwaysOn": false
+      },
+      {
+        "to": "Pandora's servers (via the bundled pianobar client)",
+        "what": "your Pandora login and playback requests",
+        "why": "Pandora playback (premium)",
+        "alwaysOn": false
+      },
+      {
+        "to": "Spotify's servers (via the bundled Raspotify/librespot service)",
+        "what": "this device's online status, for Spotify Connect discovery",
+        "why": "lets your Spotify app find and cast to this device",
+        "alwaysOn": true
+      }
+    ],
+    "collects": [
+      {
+        "what": "registration email, license key/status, cumulative premium usage seconds",
+        "about": "operator",
+        "keptDays": null,
+        "canDelete": false,
+        "where": "config/encoreradio.json"
+      },
+      {
+        "what": "Pandora username and password (plaintext)",
+        "about": "operator",
+        "keptDays": null,
+        "canDelete": false,
+        "where": "config/encoreradio.json and plugindata/fpp-EncoreRadio/state/pianobar_home/.config/pianobar/config"
+      },
+      {
+        "what": "Spotify client ID/secret and access/refresh tokens",
+        "about": "operator",
+        "keptDays": null,
+        "canDelete": false,
+        "where": "config/encoreradio.json"
+      },
+      {
+        "what": "network-share (CIFS) username and password",
+        "about": "operator",
+        "keptDays": null,
+        "canDelete": false,
+        "where": "config/encoreradio.json"
+      }
+    ],
+    "sensors": [],
+    "remoteAccess": "lan",
+    "systemChanges": [
+      { "kind": "service", "what": "creates and enables encoreradio-pulse.service, a system-wide PulseAudio instance" },
+      { "kind": "service", "what": "enables and starts the Raspotify (Spotify Connect) systemd service" },
+      { "kind": "privilege", "what": "adds the pulse and fpp users to the audio group" },
+      { "kind": "download", "what": "downloads and installs the Raspotify .deb release from dtcooper.github.io, checksum-verified via api.github.com" },
+      { "kind": "network", "what": "mounts an operator-specified network share (CIFS/SMB) on demand for the Network Share source" },
+      { "kind": "network", "what": "the audio relay binds 0.0.0.0:8123 (configurable) while a source is playing" }
+    ],
+    "closedCode": false,
+    "other": "Uninstalling does not remove config/encoreradio.json or the plugin's state directory: registration status, license data, and any saved Pandora/Spotify/network-share credentials remain on disk until deleted by hand."
+  },
   "versions": [
     {
       "minFPPVersion": "9.0",
