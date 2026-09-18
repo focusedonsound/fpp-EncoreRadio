@@ -8,6 +8,8 @@ function loadConfig($path) {
     "volume" => 70,
     "customstream" => ["name" => "", "streamUrl" => ""],
     "netshare" => ["sharePath" => "", "username" => "", "password" => "", "folder" => ""],
+    "rotation" => ["enabled" => false, "entries" => []],
+    "fallback" => ["enabled" => false, "chain" => []],
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
@@ -982,11 +984,35 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
         const res = await fetch('/api/plugin/fpp-EncoreRadio/headerIndicator', { cache: 'no-store' });
         const j = await res.json();
         const isActive = !!(j && j.visible);
-        if (isActive === wantActive) return { ok: true, indicator: j };
+        if (isActive === wantActive) {
+          erSyncHeaderIndicator(isActive ? j : null);
+          return { ok: true, indicator: j };
+        }
       } catch (e) { /* retry once */ }
       await new Promise(function (r) { setTimeout(r, 800); });
     }
     return { ok: false };
+  }
+
+  // FPP core's own top-bar icon only repaints from api/system/status's
+  // "systemonly" augmentation, which defaults to a 30s poll (see
+  // SetSystemAugRefreshSeconds in fpp.js) - erCheckPlaybackState above
+  // already confirms the real state within ~1.6s of Start/Stop completing,
+  // so patch the icon immediately here instead of leaving the visitor
+  // looking at a stale one (present after Stop, or absent after Start)
+  // until that next poll happens to land. BuildPluginHeaderIndicator is the
+  // same global fpp.js uses for every plugin's icon, so this stays
+  // pixel-identical to what the next real poll would render - this is
+  // purely a "don't wait" optimization, not a second source of truth; that
+  // next poll still runs and simply reconfirms whatever's on screen.
+  function erSyncHeaderIndicator(indicator) {
+    var $box = $('#header_plugin_indicators');
+    if (!$box.length || typeof BuildPluginHeaderIndicator !== 'function') return;
+    $box.find('[data-plugin="fpp-EncoreRadio"]').remove();
+    if (indicator) {
+      indicator.pluginName = 'fpp-EncoreRadio';
+      $box.append(BuildPluginHeaderIndicator(indicator));
+    }
   }
 
   async function erStart() {
