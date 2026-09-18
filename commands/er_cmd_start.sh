@@ -92,7 +92,9 @@ fi
 log "Playing: $STARTED_SOURCE"
 
 ANNOUNCE_PID_FILE="${STATE_DIR}/announce_scheduler.pid"
-if [[ -f "$ANNOUNCE_PID_FILE" ]] && kill -0 "$(cat "$ANNOUNCE_PID_FILE" 2>/dev/null)" 2>/dev/null; then
+if [[ "$(er_feature_enabled announce)" != "True" ]]; then
+    log "Announcements not configured, skipping scheduler"
+elif [[ -f "$ANNOUNCE_PID_FILE" ]] && kill -0 "$(cat "$ANNOUNCE_PID_FILE" 2>/dev/null)" 2>/dev/null; then
     log "Announcement scheduler already running, leaving it be"
 else
     nohup bash "${HERE}/er_announce_scheduler.sh" >> "$LOG_FILE" 2>&1 &

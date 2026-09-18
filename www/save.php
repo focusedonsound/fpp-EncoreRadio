@@ -18,7 +18,7 @@ function defaultConfig() {
     "source" => "",
     "relay" => ["port" => 8123],
     "volume" => 70,
-    "customstream" => ["name" => "", "streamUrl" => ""],
+    "customstream" => ["name" => "", "streamUrl" => "", "saved" => []],
     "netshare" => ["sharePath" => "", "username" => "", "password" => "", "folder" => ""],
     "rotation" => ["enabled" => false, "entries" => []],
     "fallback" => ["enabled" => false, "chain" => []],
@@ -68,6 +68,26 @@ $cfg["volume"] = $volume;
 
 $cfg["customstream"]["name"]      = trim((string)($_POST["customstream_name"] ?? $cfg["customstream"]["name"]));
 $cfg["customstream"]["streamUrl"] = trim((string)($_POST["customstream_streamUrl"] ?? $cfg["customstream"]["streamUrl"]));
+
+// Saved Stations (free) - a little personal library of Internet Radio URLs
+// the operator can flip between without retyping. Built client-side into a
+// JSON array and posted as one hidden field, same convention as Rotation's
+// entries. This is deliberately independent of Rotation/Fallback (premium,
+// and keyed off the five fixed source *types*, never individual URLs) -
+// saving a few stations for yourself is just data entry convenience, not
+// the kind of thing worth gating.
+$customstreamSaved = [];
+$customstreamSavedRaw = json_decode((string)($_POST["customstream_saved_json"] ?? "[]"), true);
+if (is_array($customstreamSavedRaw)) {
+  foreach ($customstreamSavedRaw as $e) {
+    if (!is_array($e)) continue;
+    $url = trim((string)($e["streamUrl"] ?? ""));
+    if ($url === "") continue;
+    $name = trim((string)($e["name"] ?? ""));
+    $customstreamSaved[] = ["name" => ($name !== "" ? $name : $url), "streamUrl" => $url];
+  }
+}
+$cfg["customstream"]["saved"] = $customstreamSaved;
 
 $cfg["netshare"]["sharePath"] = trim((string)($_POST["netshare_sharePath"] ?? $cfg["netshare"]["sharePath"]));
 $cfg["netshare"]["username"]  = trim((string)($_POST["netshare_username"] ?? $cfg["netshare"]["username"]));

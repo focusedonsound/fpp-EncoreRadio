@@ -6,7 +6,7 @@ function loadConfig($path) {
     "source" => "",
     "relay" => ["port" => 8123],
     "volume" => 70,
-    "customstream" => ["name" => "", "streamUrl" => ""],
+    "customstream" => ["name" => "", "streamUrl" => "", "saved" => []],
     "netshare" => ["sharePath" => "", "username" => "", "password" => "", "folder" => ""],
     "rotation" => ["enabled" => false, "entries" => []],
     "fallback" => ["enabled" => false, "chain" => []],
@@ -206,6 +206,10 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 <form id="erForm" onsubmit="return false;">
 <fieldset id="er-gate" <?php echo $registered ? "" : "disabled"; ?> style="<?php echo $registered ? "" : "opacity:0.55;"; ?>">
 
+  <div id="er-unsaved-banner" class="alert alert-warning py-2 px-3 mb-3" style="display:none;">
+    <i class="fas fa-fw fa-triangle-exclamation"></i> You have un-saved changes.
+  </div>
+
   <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-source">
     <div class="fppTableContents">
       <table class="fppSelectableRowTable" style="width:100%;">
@@ -257,6 +261,12 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                 Any plain HTTP/HTTPS internet radio stream URL - handy for a
                 station that isn't in TuneIn's directory. No login required.
               </p>
+              <div class="mt-3">
+                <div class="small text-muted mb-1">Saved Stations - keep a few on hand and switch between them anytime, free</div>
+                <div id="er-customstream-saved-rows"></div>
+                <button type="button" class="er-btn er-btn-sm mt-1" onclick="erSaveCurrentStation()"><i class="fas fa-fw fa-bookmark"></i> Save Current as a Station</button>
+                <input type="hidden" name="customstream_saved_json" id="er-customstream-saved-json" />
+              </div>
             </td>
           </tr>
 
@@ -301,11 +311,9 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
               <div class="d-flex gap-2 flex-wrap align-items-center">
                 <input type="text" id="er-tunein-search" class="form-control form-control-sm" placeholder="Search TuneIn stations..." style="width:100%; max-width:320px;" />
                 <button type="button" class="er-btn" onclick="erSearchTuneIn()"><i class="fas fa-fw fa-magnifying-glass"></i> Search</button>
+                <span class="small text-muted">Selected station: <strong id="er-tunein-selected-name"><?php echo htmlspecialchars($cfg["tunein"]["stationName"]); ?></strong></span>
               </div>
               <div id="er-tunein-results" class="mt-2"></div>
-              <div class="mt-2">
-                Selected station: <strong id="er-tunein-selected-name"><?php echo htmlspecialchars($cfg["tunein"]["stationName"]); ?></strong>
-              </div>
               <input type="hidden" name="tunein_stationId" id="er-tunein-stationId" value="<?php echo htmlspecialchars($cfg["tunein"]["stationId"]); ?>" />
               <input type="hidden" name="tunein_stationName" id="er-tunein-stationName" value="<?php echo htmlspecialchars($cfg["tunein"]["stationName"]); ?>" />
               <input type="hidden" name="tunein_streamUrl" id="er-tunein-streamUrl" value="<?php echo htmlspecialchars($cfg["tunein"]["streamUrl"]); ?>" />
@@ -447,6 +455,13 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     </div>
   </div>
 
+  <div class="mb-3">
+    <button type="button" class="er-btn er-btn-success" onclick="erSave()"><i class="fas fa-fw fa-floppy-disk"></i> Save</button>
+    <button type="button" class="er-btn" onclick="erStart()"><i class="fas fa-fw fa-play"></i> Start Now</button>
+    <button type="button" class="er-btn er-btn-secondary" onclick="erStop()"><i class="fas fa-fw fa-stop"></i> Stop</button>
+    <span class="small text-muted ms-1">(saves and applies everything below too, not just Source)</span>
+  </div>
+
   <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-announce">
     <div class="fppTableContents">
       <table class="fppSelectableRowTable" style="width:100%;">
@@ -458,9 +473,11 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
             <tr><td colspan="2" style="padding:8px;">
               <p class="text-muted mb-0">
                 <i class="fas fa-fw fa-circle-info"></i>
-                Scheduled announcements aren't available - they require another
-                FPP plugin with a Play/Stop command compatible with this feature
-                to be installed first.
+                Scheduled announcements aren't available - they require the
+                <a href="https://github.com/focusedonsound/fpp-AnnouncementAssistant" target="_blank" rel="noopener noreferrer">Announcement Assistant</a>
+                plugin to be installed first (any other Play/Stop-compatible
+                announcement plugin works too). Find it under
+                <a href="plugins.php">Content Setup &gt; Plugin Manager</a>.
               </p>
             </td></tr>
           <?php else: ?>
@@ -875,6 +892,70 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
   erRenderRotationRows();
 
+  // Saved Stations (free) - a little personal library of Internet Radio
+  // URLs, independent of Rotation/Fallback (premium, and keyed off the five
+  // fixed source *types* - never individual URLs). "Load" just copies a
+  // saved entry's name/URL into the active fields above; Save then applies
+  // it as normal, same as if it had been typed in by hand.
+  var erCustomstreamSaved = <?php echo json_encode($cfg["customstream"]["saved"]); ?>;
+
+  function erRenderCustomstreamSaved() {
+    var container = document.getElementById('er-customstream-saved-rows');
+    container.innerHTML = '';
+    if (erCustomstreamSaved.length === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'small text-muted';
+      empty.textContent = 'No saved stations yet.';
+      container.appendChild(empty);
+      return;
+    }
+    erCustomstreamSaved.forEach(function (entry, idx) {
+      var row = document.createElement('div');
+      row.className = 'd-flex gap-2 align-items-center mb-1';
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'small';
+      nameSpan.style.minWidth = '160px';
+      nameSpan.textContent = entry.name || entry.streamUrl;
+
+      var loadBtn = document.createElement('button');
+      loadBtn.type = 'button';
+      loadBtn.className = 'er-btn er-btn-sm';
+      loadBtn.textContent = 'Load';
+      loadBtn.onclick = function () {
+        document.querySelector('input[name="customstream_name"]').value = entry.name;
+        document.querySelector('input[name="customstream_streamUrl"]').value = entry.streamUrl;
+        erMarkDirty();
+      };
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'er-btn er-btn-danger er-btn-sm';
+      removeBtn.innerHTML = '<i class="fas fa-fw fa-trash"></i>';
+      removeBtn.onclick = function () {
+        erCustomstreamSaved.splice(idx, 1);
+        erRenderCustomstreamSaved();
+        erMarkDirty();
+      };
+
+      row.appendChild(nameSpan);
+      row.appendChild(loadBtn);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    });
+  }
+
+  function erSaveCurrentStation() {
+    var url = document.querySelector('input[name="customstream_streamUrl"]').value.trim();
+    if (!url) { erSetStatus('Enter a Stream URL first.'); return; }
+    var name = document.querySelector('input[name="customstream_name"]').value.trim();
+    erCustomstreamSaved.push({ name: name || url, streamUrl: url });
+    erRenderCustomstreamSaved();
+    erMarkDirty();
+  }
+
+  erRenderCustomstreamSaved();
+
   function erShowAnnounceMode() {
     const mode = document.querySelector('input[name="announce_mode"]:checked');
     const val = mode ? mode.value : "cadence";
@@ -961,13 +1042,29 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   async function erSave() {
     erSetStatus("Saving...");
     document.getElementById('er-rotation-json').value = JSON.stringify(erRotationEntries);
+    document.getElementById('er-customstream-saved-json').value = JSON.stringify(erCustomstreamSaved);
     const form = document.getElementById('erForm');
     const fd = new FormData(form);
     const res = await fetch(erUrl('save.php'), { method: 'POST', body: fd, cache: 'no-store' });
     const j = await erReadJson(res);
     erSetStatus(j.message || j.status || "OK");
+    if (j.status === 'OK') erMarkClean();
     return j;
   }
+
+  // Yellow "un-saved changes" banner - listens on the whole form (not each
+  // field individually) so it still catches fields added later, like a new
+  // Rotation entry row. Attached last, after every init-time call above
+  // that sets a field's initial value/checked state, so none of that setup
+  // itself is mistaken for a user edit.
+  function erMarkDirty() {
+    document.getElementById('er-unsaved-banner').style.display = '';
+  }
+  function erMarkClean() {
+    document.getElementById('er-unsaved-banner').style.display = 'none';
+  }
+  document.getElementById('erForm').addEventListener('input', erMarkDirty);
+  document.getElementById('erForm').addEventListener('change', erMarkDirty);
 
   // Start/Stop dispatch through FPP's own command API (see start.php/
   // stop.php) rather than exec()'ing scripts directly. That call
