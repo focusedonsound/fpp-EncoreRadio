@@ -398,10 +398,10 @@ show_easter_egg() {
     "fpp-AnnouncementAssistant|one-tap announcements ducked over your show audio"
   )
   local jokes=(
-    "Why did the radio break up with the record player? It wanted someone more well-rounded."
-    "I asked my playlist for relationship advice. It just kept skipping the question."
-    "Why did the DJ get arrested? Mixing without a license."
-    "What's a radio's favorite exercise? Tuning up."
+    "Why did the radio get promoted? Great frequency of good ideas."
+    "My playlist ghosted me. Now it just skips my calls."
+    "I told the DJ a joke about vinyl. He said it really spins him out."
+    "Why did the speaker apologize? It was told it needed to work on its volume control — of feelings."
   )
 
   local candidates=()
@@ -412,21 +412,28 @@ show_easter_egg() {
   done
 
   echo
-  echo "🏆 ACHIEVEMENT UNLOCKED"
-  echo "════════════════════════════════════════"
-  echo "📻  fpp-EncoreRadio installed / updated"
+  echo "══════════════════════════════════════════"
+  echo "   🏆  A C H I E V E M E N T   U N L O C K E D"
+  echo "══════════════════════════════════════════"
+  echo
+  echo "  📻  fpp-EncoreRadio — installed & ready to roll"
   echo
   echo "  \"${jokes[$((RANDOM % ${#jokes[@]}))]}\""
   echo
+  echo "  ⭐⭐⭐⭐⭐  (dad-joke rating, self-awarded)"
+  echo
+  echo "──────────────────────────────────────────"
   if [ ${#candidates[@]} -gt 0 ]; then
     entry="${candidates[$((RANDOM % ${#candidates[@]}))]}"
     repo="${entry%%|*}"
     blurb="${entry#*|}"
-    echo "🎁 Haven't tried ${repo} yet? ${blurb}"
-    echo "   https://github.com/focusedonsound/${repo}"
+    echo "  🎁  NEXT UP: ${repo}"
+    echo "      ${blurb}"
+    echo "      → https://github.com/focusedonsound/${repo}"
   else
-    echo "🎉 Looks like you've got the whole FocusedOnSound collection installed already!"
+    echo "  🎉  FULL COLLECTION UNLOCKED — every FocusedOnSound plugin, right here."
   fi
+  echo "──────────────────────────────────────────"
   echo
 }
 
