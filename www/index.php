@@ -178,7 +178,10 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       <tbody>
         <tr><td style="padding:8px;">
           <?php if ($registered): ?>
-            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Everything below is unlocked.</p>
+            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Everything below is unlocked.
+              &nbsp;<a href="#" id="er-resend-link" class="small" onclick="erResendEmail(); return false;"><i class="fas fa-fw fa-paper-plane"></i> Resend welcome email</a>
+            </p>
+            <span id="er-resend-status" class="d-block mt-2 small"></span>
           <?php else: ?>
             <p class="text-muted">
               Just an email address - nothing else required to start using
@@ -938,6 +941,19 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     } else {
       statusEl.textContent = j.message || "Something went wrong.";
     }
+  }
+
+  async function erResendEmail() {
+    const statusEl = document.getElementById('er-resend-status');
+    const linkEl = document.getElementById('er-resend-link');
+    statusEl.textContent = "Sending...";
+    linkEl.style.pointerEvents = 'none';
+    linkEl.style.opacity = '0.6';
+    const res = await fetch(erUrl('resend_registration.php'), { method: 'POST', cache: 'no-store' });
+    const j = await erReadJson(res);
+    statusEl.textContent = j.message || (j.status === 'OK' ? "Sent!" : "Something went wrong.");
+    linkEl.style.pointerEvents = '';
+    linkEl.style.opacity = '';
   }
 
   async function erSave() {
