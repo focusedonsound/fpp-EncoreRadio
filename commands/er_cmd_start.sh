@@ -6,7 +6,9 @@
 # schedule, and Fallback (premium) walks a chain of sources if the first
 # choice fails to start - then starts it via er_start_source.sh, starts
 # the announcement scheduler, and (if Rotation/Fallback are enabled) the
-# playback_scheduler.sh watchdog that keeps re-checking afterward.
+# playback_scheduler.sh watchdog that keeps re-checking afterward. If the
+# source is customstream and 2+ Internet Radio stations are configured,
+# also starts the free customstream_watchdog.sh failover watchdog.
 
 set -uo pipefail
 
@@ -110,5 +112,27 @@ if [[ "$ROTATION_OR_FALLBACK_ACTIVE" -eq 1 ]]; then
         nohup bash "${HERE}/er_playback_scheduler.sh" >> "$LOG_FILE" 2>&1 &
         echo $! > "$PLAYBACK_SCHED_PID_FILE"
         log "Playback scheduler started pid=$(cat "$PLAYBACK_SCHED_PID_FILE")"
+    fi
+fi
+
+# Internet Radio failover (free) - independent of Rotation/Fallback and
+# not gated by er_premium_gate.sh. Only starts if there are 2+ stations
+# configured (active + at least one Saved Station); with just one URL
+# there's nothing to fail over to.
+CUSTOMSTREAM_WATCHDOG_PID_FILE="${STATE_DIR}/customstream_watchdog.pid"
+if [[ "$STARTED_SOURCE" == "customstream" ]]; then
+    CUR_STREAM_URL="$(python3 -c "
+import json
+try:    print(json.load(open('$CFG_FILE')).get('customstream', {}).get('streamUrl', ''))
+except: print('')
+" 2>/dev/null)"
+    if [[ -n "$(er_next_customstream_target "$CUR_STREAM_URL")" ]]; then
+        if [[ -f "$CUSTOMSTREAM_WATCHDOG_PID_FILE" ]] && kill -0 "$(cat "$CUSTOMSTREAM_WATCHDOG_PID_FILE" 2>/dev/null)" 2>/dev/null; then
+            log "Internet Radio failover watchdog already running, leaving it be"
+        else
+            nohup bash "${HERE}/er_customstream_watchdog.sh" >> "$LOG_FILE" 2>&1 &
+            echo $! > "$CUSTOMSTREAM_WATCHDOG_PID_FILE"
+            log "Internet Radio failover watchdog started pid=$(cat "$CUSTOMSTREAM_WATCHDOG_PID_FILE")"
+        fi
     fi
 fi

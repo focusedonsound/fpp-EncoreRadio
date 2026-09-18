@@ -262,7 +262,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                 station that isn't in TuneIn's directory. No login required.
               </p>
               <div class="mt-3">
-                <div class="small text-muted mb-1">Saved Stations - keep a few on hand and switch between them anytime, free</div>
+                <div class="small text-muted mb-1">Saved Stations - keep a few on hand and switch between them anytime, free. When 2+ are saved, Encore Radio also automatically fails over to the next one if the current stream drops.</div>
                 <div id="er-customstream-saved-rows"></div>
                 <button type="button" class="er-btn er-btn-sm mt-1" onclick="erSaveCurrentStation()"><i class="fas fa-fw fa-bookmark"></i> Save Current as a Station</button>
                 <input type="hidden" name="customstream_saved_json" id="er-customstream-saved-json" />
@@ -896,7 +896,9 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   // URLs, independent of Rotation/Fallback (premium, and keyed off the five
   // fixed source *types* - never individual URLs). "Load" just copies a
   // saved entry's name/URL into the active fields above; Save then applies
-  // it as normal, same as if it had been typed in by hand.
+  // it as normal, same as if it had been typed in by hand. This same list
+  // also doubles as the automatic failover chain (see
+  // scripts/er_customstream_watchdog.sh) - no separate config needed.
   var erCustomstreamSaved = <?php echo json_encode($cfg["customstream"]["saved"]); ?>;
 
   function erRenderCustomstreamSaved() {

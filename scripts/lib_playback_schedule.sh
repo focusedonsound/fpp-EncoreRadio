@@ -69,6 +69,61 @@ print(rest[0] if rest else '')
 " 2>/dev/null
 }
 
+er_next_customstream_target() {
+    # $1 = current streamUrl ("" if none active yet). Chain is the active
+    # customstream.name/streamUrl plus customstream.saved[], in that order,
+    # de-duplicated by URL - this is the free Internet Radio failover chain
+    # (distinct from fallback.chain, which is premium and keyed off source
+    # *types*, not individual URLs). Prints "" if fewer than 2 distinct
+    # stations are configured (nothing to fail over to), otherwise a JSON
+    # object {"name":..., "streamUrl":...} for the next station, wrapping
+    # around past the end of the list.
+    CUR_URL="$1" python3 -c "
+import json, os
+try:    cfg = json.load(open('$CFG_FILE'))
+except: cfg = {}
+cs = cfg.get('customstream', {})
+chain = [{'name': cs.get('name', ''), 'streamUrl': cs.get('streamUrl', '')}] + list(cs.get('saved', []))
+seen = set()
+uniq = []
+for e in chain:
+    u = e.get('streamUrl', '')
+    if not u or u in seen:
+        continue
+    seen.add(u)
+    uniq.append(e)
+if len(uniq) < 2:
+    print('')
+else:
+    cur = os.environ.get('CUR_URL', '')
+    idx = next((i for i, e in enumerate(uniq) if e.get('streamUrl', '') == cur), -1)
+    nxt = uniq[(idx + 1) % len(uniq)] if idx >= 0 else uniq[0]
+    print(json.dumps(nxt))
+" 2>/dev/null
+}
+
+er_set_customstream_active() {
+    # $1 = JSON object {"name":..., "streamUrl":...} to make the new active
+    # customstream station - persists the failover pick, same as premium
+    # Fallback persisting its pick into state/active.json (this instead
+    # writes into config, since customstream has no separate "which one is
+    # active" field of its own to key off).
+    ENTRY_JSON="$1" python3 -c "
+import json, os
+entry = json.loads(os.environ['ENTRY_JSON'])
+try:    cfg = json.load(open('$CFG_FILE'))
+except: cfg = {}
+cfg.setdefault('customstream', {})
+cfg['customstream']['name'] = entry.get('name', '')
+cfg['customstream']['streamUrl'] = entry.get('streamUrl', '')
+tmp = '$CFG_FILE.tmp'
+with open(tmp, 'w') as f:
+    json.dump(cfg, f, indent=2)
+    f.write('\n')
+os.replace(tmp, '$CFG_FILE')
+" 2>/dev/null
+}
+
 er_playback_alive() {
     case "$1" in
         customstream|netshare|tunein)

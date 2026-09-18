@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Encore Radio - Stop everything: playback, relay, backend, announcement
-# scheduler, and the Rotation/Fallback watchdog. Safe to call even if
-# nothing is running (best-effort).
+# scheduler, the Rotation/Fallback watchdog, and the Internet Radio
+# failover watchdog. Safe to call even if nothing is running (best-effort).
 
 set -uo pipefail
 
@@ -45,6 +45,7 @@ kill_pid_file() {
 }
 kill_pid_file "${STATE_DIR}/announce_scheduler.pid"
 kill_pid_file "${STATE_DIR}/playback_scheduler.pid"
+kill_pid_file "${STATE_DIR}/customstream_watchdog.pid"
 
 # Playback (relay, backend process, network share mount, Spotify
 # pause+usage finalize) - shared with the Rotation/Fallback watchdog, see

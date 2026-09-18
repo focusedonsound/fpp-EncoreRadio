@@ -10,7 +10,7 @@ if you ever need to inspect it).
 | `volume` | 0-100, applied to whichever source is playing |
 | `relay.port` | Local port the custom-stream/network-share/TuneIn/Pandora relay listens on (default 8123) |
 | `customstream.name` / `streamUrl` | A directly-typed internet radio stream URL and label - this is the *active* one, what actually plays when `source` is `customstream` |
-| `customstream.saved` | Free - array of `{name, streamUrl}` presets the operator can save and reload into `customstream.name`/`streamUrl` from the page; not read by playback itself |
+| `customstream.saved` | Free - array of `{name, streamUrl}` presets the operator can save and reload into `customstream.name`/`streamUrl` from the page. Also doubles as the automatic Internet Radio failover chain: whenever `source` is `customstream` and 2+ distinct stations are configured (active + saved), a background watchdog advances to the next one in the list (wrapping around) if the current stream dies, updating `customstream.name`/`streamUrl` to match. Not gated by license/premium. |
 | `netshare.sharePath` | SMB/CIFS share, e.g. `//192.168.1.50/Music` |
 | `netshare.username` / `password` | Leave username blank for guest access |
 | `netshare.folder` | Subfolder within the share to play (blank = share root, searched recursively) |
