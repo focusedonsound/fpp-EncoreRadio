@@ -27,7 +27,7 @@ function defaultConfig() {
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
     "license" => ["email" => "", "registered" => false, "key" => "", "trialSecondsUsed" => 0],
-    "ui" => ["onboardingSeen" => false],
+    "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
 }
 

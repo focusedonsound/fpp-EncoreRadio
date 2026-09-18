@@ -15,7 +15,7 @@ function loadConfig($path) {
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
     "license" => ["email" => "", "registered" => false, "key" => "", "trialSecondsUsed" => 0],
-    "ui" => ["onboardingSeen" => false],
+    "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
   if (file_exists($path)) {
     $j = json_decode(@file_get_contents($path), true);
@@ -1280,7 +1280,8 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   });
 
   if (<?php echo $registered ? "true" : "false"; ?> &&
-      !<?php echo $cfg["ui"]["onboardingSeen"] ? "true" : "false"; ?>) {
+      !<?php echo $cfg["ui"]["onboardingSeen"] ? "true" : "false"; ?> &&
+      <?php echo ($cfg["ui"]["onboardingTourEnabled"] ?? true) ? "true" : "false"; ?>) {
     erTourStart();
   }
 </script>
