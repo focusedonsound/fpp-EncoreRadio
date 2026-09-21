@@ -3,12 +3,13 @@
 #
 # Picks the source to play - normally just config's flat "source" field,
 # but Rotation (premium) can pick something different for right now on a
-# schedule, and Fallback (premium) walks a chain of sources if the first
+# schedule, and Fallback (free) walks a chain of sources if the first
 # choice fails to start - then starts it via er_start_source.sh, starts
-# the announcement scheduler, and (if Rotation/Fallback are enabled) the
-# playback_scheduler.sh watchdog that keeps re-checking afterward. If the
-# source is customstream and 2+ Internet Radio stations are configured,
-# also starts the free customstream_watchdog.sh failover watchdog.
+# the announcement scheduler, and (if Rotation and/or Fallback are
+# enabled) the playback_scheduler.sh watchdog that keeps re-checking
+# afterward. If the source is customstream and 2+ Internet Radio stations
+# are configured, also starts the free customstream_watchdog.sh failover
+# watchdog.
 
 set -uo pipefail
 
@@ -38,19 +39,22 @@ except: print('')
 
 ROT_ON="$(er_feature_enabled rotation)"
 FB_ON="$(er_feature_enabled fallback)"
-ROTATION_OR_FALLBACK_ACTIVE=0
 
-if [[ "$ROT_ON" == "True" || "$FB_ON" == "True" ]]; then
+# Rotation is premium; Fallback is free and never gated - see
+# docs/how-it-works.md. Only Rotation's own check depends on the
+# premium gate; Fallback runs regardless.
+ROT_ACTIVE=0
+if [[ "$ROT_ON" == "True" ]]; then
     GATE_MSG="$(bash "${HERE}/er_premium_gate.sh" check)" && GATE_RC=0 || GATE_RC=$?
     if [[ "$GATE_RC" -eq 0 ]]; then
-        ROTATION_OR_FALLBACK_ACTIVE=1
+        ROT_ACTIVE=1
     else
-        log "Rotation/Fallback configured but not usable right now: $GATE_MSG - using configured source only"
+        log "Rotation configured but not usable right now: $GATE_MSG - using configured source only"
     fi
 fi
 
 INITIAL_SOURCE="$CONFIGURED_SOURCE"
-if [[ "$ROTATION_OR_FALLBACK_ACTIVE" -eq 1 && "$ROT_ON" == "True" ]]; then
+if [[ "$ROT_ACTIVE" -eq 1 ]]; then
     ROTATION_PICK="$(er_rotation_target)"
     if [[ -n "$ROTATION_PICK" ]]; then
         INITIAL_SOURCE="$ROTATION_PICK"
@@ -69,7 +73,7 @@ log "START source=$INITIAL_SOURCE"
 
 if bash "${HERE}/er_start_source.sh" "$INITIAL_SOURCE"; then
     STARTED_SOURCE="$INITIAL_SOURCE"
-elif [[ "$ROTATION_OR_FALLBACK_ACTIVE" -eq 1 && "$FB_ON" == "True" ]]; then
+elif [[ "$FB_ON" == "True" ]]; then
     log "$INITIAL_SOURCE failed to start - trying Fallback chain"
     STARTED_SOURCE=""
     TRY="$INITIAL_SOURCE"
@@ -105,7 +109,7 @@ else
 fi
 
 PLAYBACK_SCHED_PID_FILE="${STATE_DIR}/playback_scheduler.pid"
-if [[ "$ROTATION_OR_FALLBACK_ACTIVE" -eq 1 ]]; then
+if [[ "$ROT_ACTIVE" -eq 1 || "$FB_ON" == "True" ]]; then
     if [[ -f "$PLAYBACK_SCHED_PID_FILE" ]] && kill -0 "$(cat "$PLAYBACK_SCHED_PID_FILE" 2>/dev/null)" 2>/dev/null; then
         log "Playback scheduler already running, leaving it be"
     else

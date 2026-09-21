@@ -53,11 +53,12 @@ if (file_exists($configFile)) {
 $cfg["license"]["email"] = trim((string)($_POST["license_email"] ?? $cfg["license"]["email"]));
 $cfg["license"]["key"] = trim((string)($_POST["license_key"] ?? $cfg["license"]["key"]));
 
-// Pandora/Spotify/Rotation/Fallback (all premium) require registration
-// OR an existing license key - never a default, and never anything free
-// (customstream/netshare/TuneIn, and Announcement scheduling, are never
-// gated). Mirrors index.php's greyed-out fields, but enforced here too
-// since a disabled attribute alone doesn't stop a direct POST.
+// Pandora/Spotify/Rotation (premium) require registration OR an
+// existing license key - never a default. Source Fallback is free
+// (auto-recovery, not a premium capability), and free sources
+// (customstream/netshare/TuneIn, and Announcement scheduling) are never
+// gated either. Mirrors index.php's greyed-out fields, but enforced
+// here too since a disabled attribute alone doesn't stop a direct POST.
 $premiumUnlocked = (bool)($cfg["license"]["registered"] ?? false) || $cfg["license"]["key"] !== "";
 
 $source = trim((string)($_POST["source"] ?? ""));
@@ -83,8 +84,8 @@ $cfg["customstream"]["streamUrl"] = trim((string)($_POST["customstream_streamUrl
 // Saved Stations (free) - a little personal library of Internet Radio URLs
 // the operator can flip between without retyping. Built client-side into a
 // JSON array and posted as one hidden field, same convention as Rotation's
-// entries. This is deliberately independent of Rotation/Fallback (premium,
-// and keyed off the five fixed source *types*, never individual URLs) -
+// entries. This is deliberately independent of Rotation/Fallback (keyed
+// off the five fixed source *types*, never individual URLs) -
 // saving a few stations for yourself is just data entry convenience, not
 // the kind of thing worth gating.
 $customstreamSaved = [];
@@ -167,20 +168,22 @@ if ($premiumUnlocked) {
     }
   }
   $cfg["rotation"]["entries"] = $rotationEntries;
-
-  // Fallback (premium) - five ordered priority dropdowns rather than a
-  // drag-and-drop list, simplest reliable UI for a handful of fixed options.
-  $cfg["fallback"]["enabled"] = isset($_POST["fallback_enabled"]) && $_POST["fallback_enabled"] === "1";
-  $fallbackChain = [];
-  for ($i = 1; $i <= 5; $i++) {
-    $pick = trim((string)($_POST["fallback_priority_{$i}"] ?? ""));
-    if ($pick === "" || !in_array($pick, $validSources, true)) continue;
-    if (in_array($pick, $fallbackChain, true)) continue; // no duplicates
-    $fallbackChain[] = $pick;
-  }
-  $cfg["fallback"]["chain"] = $fallbackChain;
 }
-// else: leave $cfg["rotation"]/$cfg["fallback"] exactly as loaded.
+// else: leave $cfg["rotation"] exactly as loaded - Rotation is premium.
+
+// Fallback is free - auto-recovery if a source dies, not a premium
+// capability - so it's never gated, unlike Rotation just above. Five
+// ordered priority dropdowns rather than a drag-and-drop list, simplest
+// reliable UI for a handful of fixed options.
+$cfg["fallback"]["enabled"] = isset($_POST["fallback_enabled"]) && $_POST["fallback_enabled"] === "1";
+$fallbackChain = [];
+for ($i = 1; $i <= 5; $i++) {
+  $pick = trim((string)($_POST["fallback_priority_{$i}"] ?? ""));
+  if ($pick === "" || !in_array($pick, $validSources, true)) continue;
+  if (in_array($pick, $fallbackChain, true)) continue; // no duplicates
+  $fallbackChain[] = $pick;
+}
+$cfg["fallback"]["chain"] = $fallbackChain;
 
 // Announcement Assistant scheduling (M2)
 $cfg["announce"]["enabled"] = isset($_POST["announce_enabled"]) && $_POST["announce_enabled"] === "1";

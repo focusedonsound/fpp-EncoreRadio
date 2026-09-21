@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Encore Radio - Rotation/Fallback watchdog (premium).
+# Encore Radio - Rotation (premium) / Fallback (free) watchdog.
 #
 # Runs alongside the announcement scheduler once Start is called, but only
 # does anything when Rotation and/or Fallback are enabled in config - on a
@@ -8,9 +8,12 @@
 # currently active source's playback is actually still alive and advances
 # to the next entry in the fallback chain if it isn't.
 #
-# Gated the same way as Pandora/Spotify (er_premium_gate.sh) - Rotation
-# and Fallback are premium capabilities in their own right, independent of
-# which underlying source type they end up choosing.
+# Rotation is gated the same way as Pandora/Spotify (er_premium_gate.sh) -
+# it's a premium capability in its own right, independent of which
+# underlying source type it ends up choosing. Fallback is a reliability
+# feature, not a premium one, and always runs once enabled - it can still
+# land on a premium source, which then enforces its own gate the same way
+# picking it directly would.
 
 set -uo pipefail
 
@@ -41,19 +44,20 @@ while true; do
     FB_ON="$(er_feature_enabled fallback)"
     [[ "$ROT_ON" != "True" && "$FB_ON" != "True" ]] && continue
 
-    GATE_MSG="$(bash "${HERE}/er_premium_gate.sh" check)" && GATE_RC=0 || GATE_RC=$?
-    if [[ "$GATE_RC" -ne 0 ]]; then
-        log "Rotation/Fallback blocked: $GATE_MSG"
-        continue
-    fi
-
     CUR="$(er_active_source)"
 
+    # Rotation is premium and gated; Fallback is free and never checked
+    # here - only Rotation's own branch depends on this.
     if [[ "$ROT_ON" == "True" ]]; then
-        WANT="$(er_rotation_target)"
-        if [[ -n "$WANT" && "$WANT" != "$CUR" ]]; then
-            switch_to "$WANT"
-            continue
+        GATE_MSG="$(bash "${HERE}/er_premium_gate.sh" check)" && GATE_RC=0 || GATE_RC=$?
+        if [[ "$GATE_RC" -ne 0 ]]; then
+            log "Rotation blocked: $GATE_MSG"
+        else
+            WANT="$(er_rotation_target)"
+            if [[ -n "$WANT" && "$WANT" != "$CUR" ]]; then
+                switch_to "$WANT"
+                continue
+            fi
         fi
     fi
 

@@ -57,9 +57,10 @@ $raspotifyInstalled = file_exists("/usr/bin/librespot");
 
 $registered = (bool)($cfg["license"]["registered"] ?? false);
 $hasLicenseKey = trim((string)$cfg["license"]["key"]) !== "";
-// Pandora/Spotify/Rotation/Fallback (all premium) are locked behind
-// registration OR an existing license key - never behind a default
-// setting, and free sources (customstream/netshare/TuneIn) are never
+// Pandora/Spotify/Rotation (premium) are locked behind registration OR
+// an existing license key - never behind a default setting. Source
+// Fallback is free (auto-recovery, not a premium capability) and free
+// sources (customstream/netshare/TuneIn) are never
 // gated at all. Enforced again server-side in save.php, not just here.
 $premiumUnlocked = $registered || $hasLicenseKey;
 $trialSecondsUsed = loadTrialSecondsUsed("/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json");
@@ -195,18 +196,18 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       <tbody>
         <tr><td style="padding:8px;">
           <?php if ($registered): ?>
-            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Pandora, Spotify, Rotation, and Fallback are unlocked below.</p>
+            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Pandora, Spotify, and Source Rotation are unlocked below.</p>
           <?php else: ?>
             <p class="text-muted">
               Encore Radio is built to be your one solution for keeping
               the music going after the show ends - and we're actively
               adding new features to keep your station running all day,
               not just after hours. Register your email to unlock
-              Pandora, Spotify, Source Rotation, and Source Fallback,
-              get a welcome note now, and a few check-ins over the next
-              couple weeks if you haven't picked up a license by then
-              (stops automatically once you have one). TuneIn, custom
-              stream, and network share stay free either way - only this
+              Pandora, Spotify, and Source Rotation, get a welcome note
+              now, and a few check-ins over the next couple weeks if you
+              haven't picked up a license by then (stops automatically
+              once you have one). TuneIn, custom stream, network share,
+              and Source Fallback stay free either way - only this
               address ever gets sent, never usage data.
             </p>
             <div class="d-flex gap-2 align-items-center flex-wrap">
@@ -613,20 +614,11 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
   <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-fallback">
     <div class="fppTableContents">
-      <fieldset <?php echo $premiumUnlocked ? "" : "disabled"; ?> style="<?php echo $premiumUnlocked ? "" : "opacity:0.55;"; ?> border:0; padding:0; margin:0;">
       <table class="fppSelectableRowTable" style="width:100%;">
         <thead>
-          <tr><th colspan="2" style="padding:8px;"><i class="fas fa-fw fa-shield-halved"></i> Source Fallback (Premium)</th></tr>
+          <tr><th colspan="2" style="padding:8px;"><i class="fas fa-fw fa-shield-halved"></i> Source Fallback <span class="text-muted small">- free</span></th></tr>
         </thead>
         <tbody>
-          <?php if (!$premiumUnlocked): ?>
-          <tr><td colspan="2" style="padding:8px;">
-            <p class="small text-warning mb-0">
-              <i class="fas fa-fw fa-lock"></i>
-              Register your email above, or enter a license key below, to unlock Source Fallback.
-            </p>
-          </td></tr>
-          <?php endif; ?>
           <tr><td colspan="2" style="padding:8px;">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="fallback_enabled" id="er-fallback-enabled" value="1" <?php echo $cfg["fallback"]["enabled"] ? "checked" : ""; ?> />
@@ -664,7 +656,6 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
           <?php endfor; ?>
         </tbody>
       </table>
-      </fieldset>
     </div>
   </div>
 
@@ -700,7 +691,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
         <tbody>
           <tr><td colspan="2" style="padding:8px;">
             <?php if ($hasLicenseKey): ?>
-              <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> License key on file. Premium features (Pandora, Spotify, Source Rotation, Source Fallback) are unlocked.</p>
+              <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> License key on file. Premium features (Pandora, Spotify, Source Rotation) are unlocked.</p>
             <?php else: ?>
               <p class="mb-0">
                 <strong><?php echo $trialHoursRemaining; ?> premium hours remaining</strong>
@@ -945,8 +936,8 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   erRenderRotationRows();
 
   // Saved Stations (free) - a little personal library of Internet Radio
-  // URLs, independent of Rotation/Fallback (premium, and keyed off the five
-  // fixed source *types* - never individual URLs). "Load" just copies a
+  // URLs, independent of Rotation/Fallback (keyed off the five fixed
+  // source *types* - never individual URLs). "Load" just copies a
   // saved entry's name/URL into the active fields above; Save then applies
   // it as normal, same as if it had been typed in by hand. This same list
   // also doubles as the automatic failover chain (see
@@ -1270,8 +1261,8 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     },
     {
       selector: '#er-fieldset-fallback',
-      title: 'Source Fallback - Premium',
-      text: 'Optional. If a source fails to start, or dies partway ' +
+      title: 'Source Fallback - Free',
+      text: 'Optional, and free. If a source fails to start, or dies partway ' +
         'through the night, Encore Radio automatically tries the next one ' +
         'in the order you set here - put a free source last as a ' +
         'guaranteed backstop, since it doesn\'t depend on an external ' +

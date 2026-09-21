@@ -17,13 +17,13 @@ Set it up once, and it runs itself every night on your own FPP schedule.
   any network share and it plays your entire collection, shuffled — no
   copying files onto the controller, no size limits.
 - **A real internet radio station**, TuneIn included, free.
+- **Source Fallback, free too** — if one source has a bad night, Encore
+  Radio quietly recovers to the next one in line. The music doesn't stop.
 - **Go premium for Pandora and Spotify** — your own curated stations and
   playlists, not just a fixed stream.
-- **Source Rotation** — a different station or playlist depending on the
-  night or the hour. Upbeat for the early crowd, mellow after the kids
-  are in bed, something different on weekends.
-- **Source Fallback** — if one source has a bad night, Encore Radio
-  quietly recovers to the next one in line. The music doesn't stop.
+- **Source Rotation (premium)** — a different station or playlist
+  depending on the night or the hour. Upbeat for the early crowd, mellow
+  after the kids are in bed, something different on weekends.
 - **Radio-station-style announcements**, layered in automatically if you
   run [Announcement Assistant](https://github.com/focusedonsound/fpp-AnnouncementAssistant) —
   "Thanks for tuning in!" without lifting a finger.
@@ -37,8 +37,8 @@ Set it up once, and it runs itself every night on your own FPP schedule.
 | TuneIn | ✅ | ✅ |
 | Pandora | | ✅ |
 | Spotify | | ✅ |
+| Source Fallback (auto-recovery) | ✅ | ✅ |
 | Source Rotation (day/time schedule) | | ✅ |
-| Source Fallback (auto-recovery) | | ✅ |
 | Announcement Assistant integration | ✅ | ✅ |
 
 Try any premium feature free for 10 hours of real playback. After that,
@@ -48,8 +48,10 @@ a license key unlocks it for the year.
 
 1. Install Encore Radio from the FPP Plugin Manager (or add this repo
    manually).
-2. Open the Encore Radio page, register your email (free, one field,
-   nothing else), and pick a source.
+2. Open the Encore Radio page and pick a source - Pandora, Spotify, and
+   Source Rotation need a quick, free email registration (or a license
+   key, if you already have one) first; everything else is unlocked
+   right away.
 3. Add two FPP Schedule entries: **Encore Radio - Start** for when your
    show ends, **Encore Radio - Stop** for when you want it to end for the
    night.

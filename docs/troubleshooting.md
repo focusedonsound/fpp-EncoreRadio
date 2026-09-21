@@ -35,8 +35,10 @@ timestamped, tagged lines there (`[er_relay]`, `[pulse-play]`, `[spotify]`,
 
 ## Source Rotation/Fallback isn't switching sources
 
-- Both need a valid trial/license - check the log for a "Rotation/Fallback
-  blocked: ..." line, same premium gate as Pandora/Spotify.
+- Rotation needs a valid trial/license - check the log for a
+  "Rotation/Fallback blocked: ..." line, same premium gate as
+  Pandora/Spotify. Fallback doesn't need one; it's free and always active
+  once enabled.
 - Rotation only switches when a schedule entry actually matches the
   current day/time - if nothing matches, the Source picked at the top of
   the page plays instead, which is expected, not a bug.

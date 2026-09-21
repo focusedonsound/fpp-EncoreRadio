@@ -2,7 +2,7 @@
   "repoName": "fpp-EncoreRadio",
   "name": "Encore Radio",
   "author": "Nick Scilingo Nick S(NJ)",
-  "description": "Keep the radio station feel going after the light show ends. Streams a custom internet radio URL, TuneIn stations, or a folder of music from a network share (free), or Pandora and Spotify playlists (premium), through your after-hours schedule. Premium also unlocks Source Rotation (a different source on a day/time schedule) and Source Fallback (auto-recovery if a source fails), with Announcement Assistant integration for scheduled station-style announcements.",
+  "description": "Keep the radio station feel going after the light show ends. Streams a custom internet radio URL, TuneIn stations, or a folder of music from a network share (free), or Pandora and Spotify playlists (premium), through your after-hours schedule. Source Fallback (auto-recovery if a source fails) is free for every source; Source Rotation (a different source on a day/time schedule) is premium. Includes Announcement Assistant integration for scheduled station-style announcements.",
   "homeURL": "https://github.com/focusedonsound/fpp-EncoreRadio",
   "srcURL": "https://github.com/focusedonsound/fpp-EncoreRadio.git",
   "bugURL": "https://github.com/focusedonsound/fpp-EncoreRadio/issues",
@@ -16,7 +16,7 @@
       {
         "to": "encoreradio-license.nscilingo.workers.dev",
         "what": "Hardware ID + license key when validating; your email if saved, for reminders; relays Spotify OAuth.",
-        "why": "License validation, optional email reminders, and unlocking Pandora/Spotify/Rotation/Fallback.",
+        "why": "License validation, optional email reminders, and unlocking Pandora/Spotify/Rotation.",
         "alwaysOn": false
       },
       {
@@ -64,7 +64,7 @@
     ],
     "collects": [
       {
-        "what": "An email or license key - required for Pandora/Spotify/Rotation/Fallback, never for free sources.",
+        "what": "An email or license key - required for Pandora/Spotify/Rotation, never for free sources.",
         "about": "operator",
         "keptDays": null,
         "canDelete": false,
@@ -111,7 +111,7 @@
       { "kind": "network", "what": "The audio relay binds 0.0.0.0:8123 (configurable) while a source is playing." }
     ],
     "closedCode": false,
-    "other": "Pandora, Spotify, Source Rotation, and Source Fallback are locked in the UI (and rejected server-side, not just cosmetically) until you register an email or already have a license key entered; Custom Internet Radio, Network Share, TuneIn, and Announcement Assistant scheduling are never gated on anything. The PulseAudio system.pa rewrite also points every PulseAudio client running as the fpp user - including FPP's own audio output, not just this plugin's - at the shared instance; it's backed up before being overwritten and restored on uninstall, but only when this plugin was the one that created it (not when another plugin, e.g. Announcement Assistant, got there first - uninstalling never touches a shared setup it doesn't own). The license server's email flow (only if you save an email) sends nothing but that address, and stops automatically once you have a license key: a welcome message on signup, then reminders at day 3/7/14 if you're still unlicensed. During Spotify setup, the license server also relays the OAuth authorization code and this device's local callback URL back to it, since Spotify requires an https redirect URI and this device's LAN address can't be one - the token exchange itself still happens locally. Custom Internet Radio, TuneIn, and Network Share sources send requests only to the stream URL, station, or NAS you configure. Uninstalling does not remove plugindata/fpp-EncoreRadio/ (encoreradio.json, trial_state.json) or the plugin's state directory: registration status, license data, trial-hour progress, and any saved Pandora/Spotify/network-share credentials remain on disk until deleted by hand. It also does not remove the raspotify package or /etc/raspotify/conf, so a reinstall doesn't need to re-download it."
+    "other": "Pandora, Spotify, and Source Rotation are locked in the UI (and rejected server-side, not just cosmetically) until you register an email or already have a license key entered; Source Fallback, Custom Internet Radio, Network Share, TuneIn, and Announcement Assistant scheduling are never gated on anything. The PulseAudio system.pa rewrite also points every PulseAudio client running as the fpp user - including FPP's own audio output, not just this plugin's - at the shared instance; it's backed up before being overwritten and restored on uninstall, but only when this plugin was the one that created it (not when another plugin, e.g. Announcement Assistant, got there first - uninstalling never touches a shared setup it doesn't own). The license server's email flow (only if you save an email) sends nothing but that address, and stops automatically once you have a license key: a welcome message on signup, then reminders at day 3/7/14 if you're still unlicensed. During Spotify setup, the license server also relays the OAuth authorization code and this device's local callback URL back to it, since Spotify requires an https redirect URI and this device's LAN address can't be one - the token exchange itself still happens locally. Custom Internet Radio, TuneIn, and Network Share sources send requests only to the stream URL, station, or NAS you configure. Uninstalling does not remove plugindata/fpp-EncoreRadio/ (encoreradio.json, trial_state.json) or the plugin's state directory: registration status, license data, trial-hour progress, and any saved Pandora/Spotify/network-share credentials remain on disk until deleted by hand. It also does not remove the raspotify package or /etc/raspotify/conf, so a reinstall doesn't need to re-download it."
   },
   "versions": [
     {

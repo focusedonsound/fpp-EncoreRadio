@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Encore Radio - Rotation/Fallback shared logic (premium).
+# Encore Radio - Rotation (premium) / Fallback (free) shared logic.
 #
 # Sourced by both commands/er_cmd_start.sh (to pick the initial source at
 # Start time) and er_playback_scheduler.sh (the background watchdog that

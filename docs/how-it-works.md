@@ -48,26 +48,31 @@ with the auth `code` appended - the token exchange itself still happens
 entirely on the local device (`www/spotify_callback.php`), which never
 sends the client secret anywhere but Spotify.
 
-## Source Rotation and Source Fallback (premium)
+## Source Rotation (premium) and Source Fallback (free)
 
 Both live behind a shared watchdog, `scripts/er_playback_scheduler.sh`,
-started alongside the announcement scheduler whenever either is enabled
-and the premium gate passes. It polls every 30 seconds:
+started alongside the announcement scheduler whenever either is enabled.
+Rotation only runs once the premium gate passes; Fallback always runs
+regardless - it's a reliability feature (auto-recovery if a source dies),
+not a premium one, even though it can fail over *into* a premium source
+if one is in the chain (which then hits that source's own gate the same
+way picking it directly would). The watchdog polls every 30 seconds:
 
-- **Rotation**: evaluates `rotation.entries` against the current
-  day-of-week and time (a fixed weekday index, not locale-dependent
-  `strftime`) to find which source should be playing right now. If that
-  differs from what's actually playing, it stops the current source and
-  starts the new one - both at the initial Start command and continuously
-  afterward, so a schedule boundary crossed mid-session actually swaps
-  sources rather than only being checked at Start.
-- **Fallback**: checks whether the currently active source's playback is
-  actually still alive (a PID check for the relay-based sources, a Web
-  API device/is_playing check for Spotify, since Raspotify has no local
-  process to check). If it's died, it advances to the next entry in
-  `fallback.chain` and starts that instead. The same chain-walking also
-  runs once synchronously at the initial Start command, in case the
-  first choice fails to start at all.
+- **Rotation** (premium): evaluates `rotation.entries` against the
+  current day-of-week and time (a fixed weekday index, not
+  locale-dependent `strftime`) to find which source should be playing
+  right now. If that differs from what's actually playing, it stops the
+  current source and starts the new one - both at the initial Start
+  command and continuously afterward, so a schedule boundary crossed
+  mid-session actually swaps sources rather than only being checked at
+  Start.
+- **Fallback** (free): checks whether the currently active source's
+  playback is actually still alive (a PID check for the relay-based
+  sources, a Web API device/is_playing check for Spotify, since
+  Raspotify has no local process to check). If it's died, it advances to
+  the next entry in `fallback.chain` and starts that instead. The same
+  chain-walking also runs once synchronously at the initial Start
+  command, in case the first choice fails to start at all.
 
 The two features share `scripts/lib_playback_schedule.sh` (the
 day/time-matching and chain-walking logic) and `scripts/er_start_source.sh`
