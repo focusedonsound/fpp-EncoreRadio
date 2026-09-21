@@ -16,7 +16,7 @@
 
 set -euo pipefail
 
-CFG_FILE="/home/fpp/media/config/encoreradio.json"
+CFG_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json"
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -50,9 +50,20 @@ if [[ "$GATE_RC" -ne 0 ]]; then
 fi
 log "Premium gate: $GATE_MSG"
 
-USERNAME="$(cfg username)"
-PASSWORD="$(cfg password)"
+# Strips CR/LF so a value can never inject a second pianobar config
+# directive (e.g. a newline followed by "event_command = ...", which
+# pianobar would run as root) - pianobar's config format has no quoting
+# and reads one directive per line, so a bare newline in any field is
+# the entire attack surface here.
+strip_crlf() { printf '%s' "${1//$'\r'/}" | tr -d '\n'; }
+
+USERNAME="$(strip_crlf "$(cfg username)")"
+PASSWORD="$(strip_crlf "$(cfg password)")"
 STATION_ID="$(cfg stationId)"
+# Station ID is meant to be purely numeric (a Pandora station ID) - strip
+# anything else defensively even though it only ever comes from our own
+# search UI, not free-text entry.
+STATION_ID="${STATION_ID//[^0-9]/}"
 
 if [[ -z "$USERNAME" || -z "$PASSWORD" ]]; then
     log "ERROR: Pandora username/password not configured"

@@ -30,7 +30,7 @@ except: print('')
 if [[ -z "$ACTIVE_SOURCE" ]]; then
     ACTIVE_SOURCE="$(python3 -c "
 import json
-try:    print(json.load(open('/home/fpp/media/config/encoreradio.json')).get('source', ''))
+try:    print(json.load(open('/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json')).get('source', ''))
 except: print('')
 " 2>/dev/null || echo "")"
 fi
@@ -56,7 +56,7 @@ fi
 # No sudo needed - this script is only ever reached via an actual FPP
 # Command, which fppd already runs as root (see netshare_folder.sh for the
 # full explanation).
-NETSHARE_MOUNT="${STATE_DIR}/netshare_mount"
+NETSHARE_MOUNT="/run/fpp-EncoreRadio-netshare"
 if mountpoint -q "$NETSHARE_MOUNT" 2>/dev/null; then
     umount "$NETSHARE_MOUNT" 2>/dev/null || umount -l "$NETSHARE_MOUNT" 2>/dev/null || true
 fi

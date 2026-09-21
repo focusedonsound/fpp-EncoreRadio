@@ -8,19 +8,39 @@
   "bugURL": "https://github.com/focusedonsound/fpp-EncoreRadio/issues",
   "iconURL": "https://raw.githubusercontent.com/focusedonsound/fpp-EncoreRadio/master/icon.png",
   "allowUpdates": 1,
+  "minMemoryMB": 512,
+  "minCpuCores": 2,
   "privacy": {
-    "summary": "Streams your chosen station or shared library (free) or Pandora/Spotify (premium) through FPP, and reports registration/usage to Encore Radio's license server.",
+    "summary": "Streams your chosen station or shared library (free) or Pandora/Spotify (premium) through FPP. The 10-hour Pandora/Spotify trial is tracked entirely on this device and never reported anywhere - the license server is only ever contacted to validate a paid license key you've entered, and to relay Spotify's OAuth handshake during Spotify setup.",
     "sends": [
       {
         "to": "encoreradio-license.nscilingo.workers.dev",
-        "what": "your email, a hardware ID (CPU serial/machine-id), license key, and premium usage seconds",
-        "why": "registration and premium license validation/usage tracking",
+        "what": "a hardware ID (CPU serial/machine-id) and the license key you entered; also relays the Spotify OAuth authorization code and this device's local callback URL during Spotify setup, since Spotify only accepts an https redirect URI and this device's LAN address can't be one",
+        "why": "validating a paid license key against the device it was entered on, and completing Spotify's OAuth handshake",
         "alwaysOn": false
       },
       {
         "to": "opml.radiotime.com",
         "what": "your TuneIn station search text",
         "why": "TuneIn station search and playback",
+        "alwaysOn": false
+      },
+      {
+        "to": "the custom stream URL you enter",
+        "what": "an HTTP request to start playback of that stream",
+        "why": "Custom Internet Radio source playback",
+        "alwaysOn": false
+      },
+      {
+        "to": "the TuneIn station's actual stream host (resolved via opml.radiotime.com's Tune.ashx)",
+        "what": "an HTTP request to start playback of that station's stream",
+        "why": "TuneIn source playback",
+        "alwaysOn": false
+      },
+      {
+        "to": "your NAS or network share",
+        "what": "the CIFS/SMB username and password you configure, and file read requests",
+        "why": "Network Share source playback",
         "alwaysOn": false
       },
       {
@@ -44,46 +64,54 @@
     ],
     "collects": [
       {
-        "what": "registration email, license key/status, cumulative premium usage seconds",
+        "what": "an optional registration email (not required for anything - kept only for the operator's own reference) and license key/status",
         "about": "operator",
         "keptDays": null,
         "canDelete": false,
-        "where": "config/encoreradio.json"
+        "where": "plugindata/fpp-EncoreRadio/encoreradio.json (mode 600)"
+      },
+      {
+        "what": "cumulative premium (Pandora/Spotify) trial seconds used - tracked entirely locally, never sent anywhere, and freely resettable by editing or deleting this file",
+        "about": "operator",
+        "keptDays": null,
+        "canDelete": true,
+        "where": "plugindata/fpp-EncoreRadio/trial_state.json (mode 600)"
       },
       {
         "what": "Pandora username and password (plaintext)",
         "about": "operator",
         "keptDays": null,
         "canDelete": false,
-        "where": "config/encoreradio.json and plugindata/fpp-EncoreRadio/state/pianobar_home/.config/pianobar/config"
+        "where": "plugindata/fpp-EncoreRadio/encoreradio.json (mode 600) and media/plugins/fpp-EncoreRadio/state/pianobar_home/.config/pianobar/config (mode 600, root-owned)"
       },
       {
         "what": "Spotify client ID/secret and access/refresh tokens",
         "about": "operator",
         "keptDays": null,
         "canDelete": false,
-        "where": "config/encoreradio.json"
+        "where": "plugindata/fpp-EncoreRadio/encoreradio.json (mode 600)"
       },
       {
         "what": "network-share (CIFS) username and password",
         "about": "operator",
         "keptDays": null,
         "canDelete": false,
-        "where": "config/encoreradio.json"
+        "where": "plugindata/fpp-EncoreRadio/encoreradio.json (mode 600), and briefly in plugindata/fpp-EncoreRadio/netshare_creds (mode 600, rewritten each time the share is mounted)"
       }
     ],
     "sensors": [],
     "remoteAccess": "lan",
     "systemChanges": [
-      { "kind": "service", "what": "creates and enables encoreradio-pulse.service, a system-wide PulseAudio instance" },
-      { "kind": "service", "what": "enables and starts the Raspotify (Spotify Connect) systemd service" },
+      { "kind": "service", "what": "creates and enables encoreradio-pulse.service, a system-wide PulseAudio instance; overwrites /etc/pulse/system.pa (backed up and restored on uninstall) and writes /home/fpp/.config/pulse/client.conf pointing the fpp user's PulseAudio clients - including FPP's own audio output - at that system instance" },
+      { "kind": "service", "what": "enables and starts the Raspotify (Spotify Connect) systemd service once the operator configures Spotify (premium); not started for operators who never use the Spotify source" },
       { "kind": "privilege", "what": "adds the pulse and fpp users to the audio group" },
       { "kind": "download", "what": "downloads and installs the Raspotify .deb release from dtcooper.github.io, checksum-verified via api.github.com" },
-      { "kind": "network", "what": "mounts an operator-specified network share (CIFS/SMB) on demand for the Network Share source" },
+      { "kind": "file", "what": "edits /etc/raspotify/conf (backend/device name) when Raspotify is installed" },
+      { "kind": "network", "what": "mounts an operator-specified network share (CIFS/SMB) on demand for the Network Share source, at /run/fpp-EncoreRadio-netshare (outside media/, unmounted when playback stops)" },
       { "kind": "network", "what": "the audio relay binds 0.0.0.0:8123 (configurable) while a source is playing" }
     ],
     "closedCode": false,
-    "other": "Uninstalling does not remove config/encoreradio.json or the plugin's state directory: registration status, license data, and any saved Pandora/Spotify/network-share credentials remain on disk until deleted by hand."
+    "other": "Uninstalling does not remove plugindata/fpp-EncoreRadio/ (encoreradio.json, trial_state.json) or the plugin's state directory: registration status, license data, trial-hour progress, and any saved Pandora/Spotify/network-share credentials remain on disk until deleted by hand. Uninstalling also does not remove the raspotify package or /etc/raspotify/conf (so a reinstall doesn't need to re-download it), and never touches the shared PulseAudio service/config if another installed plugin (e.g. Announcement Assistant) may also depend on it."
   },
   "versions": [
     {

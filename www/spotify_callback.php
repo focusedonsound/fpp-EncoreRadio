@@ -13,7 +13,7 @@ declare(strict_types=1);
 // redirected there again at this point.
 define("ER_SPOTIFY_FIXED_REDIRECT_URI", "https://encoreradio-license.nscilingo.workers.dev/spotify/callback");
 
-$configFile = "/home/fpp/media/config/encoreradio.json";
+$configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 
 function renderResult(bool $ok, string $message): void {
   $color = $ok ? "#2a7" : "#c33";
@@ -78,5 +78,6 @@ if (@file_put_contents($tmp, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPE
     || !@rename($tmp, $configFile)) {
   renderResult(false, "Got tokens from Spotify but failed to save them to config.");
 }
+@chmod($configFile, 0600);
 
 renderResult(true, "Your Spotify account is now connected. You can search and pick a playlist on the Encore Radio page. Don't forget the separate one-time step of pairing the Raspotify Connect device via your phone's Spotify app if you haven't already.");

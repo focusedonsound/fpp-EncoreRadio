@@ -1,5 +1,5 @@
 <?php
-$configFile = "/home/fpp/media/config/encoreradio.json";
+$configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 
 function loadConfig($path) {
   $cfg = [
@@ -14,7 +14,7 @@ function loadConfig($path) {
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
-    "license" => ["email" => "", "registered" => false, "key" => "", "trialSecondsUsed" => 0],
+    "license" => ["email" => "", "registered" => false, "key" => ""],
     "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
   if (file_exists($path)) {
@@ -22,6 +22,16 @@ function loadConfig($path) {
     if (is_array($j)) $cfg = array_replace_recursive($cfg, $j);
   }
   return $cfg;
+}
+
+// Trial-hour tracking lives in its own file, separate from settings - see
+// scripts/er_premium_gate.sh / er_track_usage.sh.
+function loadTrialSecondsUsed($path) {
+  if (file_exists($path)) {
+    $j = json_decode(@file_get_contents($path), true);
+    if (is_array($j)) return (int)($j["trialSecondsUsed"] ?? 0);
+  }
+  return 0;
 }
 
 function loadAASlots() {
@@ -47,7 +57,7 @@ $raspotifyInstalled = file_exists("/usr/bin/librespot");
 
 $registered = (bool)($cfg["license"]["registered"] ?? false);
 $hasLicenseKey = trim((string)$cfg["license"]["key"]) !== "";
-$trialSecondsUsed = (int)($cfg["license"]["trialSecondsUsed"] ?? 0);
+$trialSecondsUsed = loadTrialSecondsUsed("/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json");
 $trialSecondsRemaining = max(0, (10 * 3600) - $trialSecondsUsed);
 $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 ?>
@@ -175,25 +185,22 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   <div class="fppTableContents">
     <table class="fppSelectableRowTable" style="width:100%;">
       <thead>
-        <tr><th style="padding:8px;"><i class="fas fa-fw fa-envelope"></i> Get Started</th></tr>
+        <tr><th style="padding:8px;"><i class="fas fa-fw fa-envelope"></i> Your Email (optional)</th></tr>
       </thead>
       <tbody>
         <tr><td style="padding:8px;">
           <?php if ($registered): ?>
-            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Everything below is unlocked.
-              &nbsp;<a href="#" id="er-resend-link" class="small" onclick="erResendEmail(); return false;"><i class="fas fa-fw fa-paper-plane"></i> Resend welcome email</a>
-            </p>
-            <span id="er-resend-status" class="d-block mt-2 small"></span>
+            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Saved as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>.</p>
           <?php else: ?>
             <p class="text-muted">
-              Just an email address - nothing else required to start using
-              Encore Radio (TuneIn included). We'll only use it to let you
-              know if your Pandora/Spotify trial is running low, or when
-              it runs out.
+              Entirely optional, and not required for anything below
+              (including Pandora/Spotify's trial) - this is just kept on
+              this device for your own reference, e.g. if you manage more
+              than one controller. Nothing is sent anywhere when you save it.
             </p>
             <div class="d-flex gap-2 align-items-center flex-wrap">
               <input type="email" class="form-control form-control-sm" id="er-signup-email" placeholder="you@example.com" style="width:100%; max-width:320px;" />
-              <button type="button" class="er-btn" onclick="erSignUp()"><i class="fas fa-fw fa-user-plus"></i> Get Started</button>
+              <button type="button" class="er-btn" onclick="erSignUp()"><i class="fas fa-fw fa-floppy-disk"></i> Save</button>
             </div>
             <span id="er-signup-status" class="d-block mt-2 small"></span>
           <?php endif; ?>
@@ -204,7 +211,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 </div>
 
 <form id="erForm" onsubmit="return false;">
-<fieldset id="er-gate" <?php echo $registered ? "" : "disabled"; ?> style="<?php echo $registered ? "" : "opacity:0.55;"; ?>">
+<fieldset id="er-gate">
 
   <div id="er-unsaved-banner" class="alert alert-warning py-2 px-3 mb-3" style="display:none;">
     <i class="fas fa-fw fa-triangle-exclamation"></i> You have un-saved changes.
@@ -668,9 +675,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
             </button>
             <p class="small text-muted mt-2 mb-0">
               Registered above at <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong> -
-              paste your license key here once you have one. Encore Radio
-              itself never links to a purchase page (not allowed by the FPP
-              plugin guidelines).
+              paste your license key here once you have one.
             </p>
           </td></tr>
         </tbody>
@@ -1010,7 +1015,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     const emailEl = document.getElementById('er-signup-email');
     const email = emailEl.value.trim();
     if (!email) { statusEl.textContent = "Enter an email address first."; return; }
-    statusEl.textContent = "Registering...";
+    statusEl.textContent = "Saving...";
     const res = await fetch(erUrl('license_register.php'), {
       method: 'POST',
       body: new URLSearchParams({ email }),
@@ -1018,27 +1023,11 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     });
     const j = await erReadJson(res);
     if (j.status === 'OK') {
-      statusEl.textContent = j.message || "Registered!";
-      // Reload so the page re-renders with everything unlocked - simpler
-      // and more reliable than trying to un-disable the whole fieldset
-      // and re-run every PHP-derived default in place with JS.
+      statusEl.textContent = j.message || "Saved!";
       setTimeout(function () { window.location.reload(); }, 800);
     } else {
       statusEl.textContent = j.message || "Something went wrong.";
     }
-  }
-
-  async function erResendEmail() {
-    const statusEl = document.getElementById('er-resend-status');
-    const linkEl = document.getElementById('er-resend-link');
-    statusEl.textContent = "Sending...";
-    linkEl.style.pointerEvents = 'none';
-    linkEl.style.opacity = '0.6';
-    const res = await fetch(erUrl('resend_registration.php'), { method: 'POST', cache: 'no-store' });
-    const j = await erReadJson(res);
-    statusEl.textContent = j.message || (j.status === 'OK' ? "Sent!" : "Something went wrong.");
-    linkEl.style.pointerEvents = '';
-    linkEl.style.opacity = '';
   }
 
   async function erSave() {
@@ -1245,9 +1234,8 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       selector: '#er-fieldset-license',
       title: 'License (Premium)',
       text: 'Tracks your 10-hour Pandora/Spotify trial (TuneIn never counts ' +
-        'against it). You\'re already registered, so we\'ll reach out ' +
-        'before your trial runs low - enter a license key here once you ' +
-        'have one. Nothing on this page ever links to a purchase page.'
+        'against it) - the counter lives only on this device. Enter a ' +
+        'license key here once you have one.'
     },
     {
       selector: '#er-save',
@@ -1371,15 +1359,10 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
   document.getElementById('er-onboarding-replay').addEventListener('click', function (e) {
     e.preventDefault();
-    if (!<?php echo $registered ? "true" : "false"; ?>) {
-      erSetStatus("Register your email at the top of the page first, then replay the walkthrough.");
-      return;
-    }
     erTourStart();
   });
 
-  if (<?php echo $registered ? "true" : "false"; ?> &&
-      !<?php echo $cfg["ui"]["onboardingSeen"] ? "true" : "false"; ?> &&
+  if (!<?php echo $cfg["ui"]["onboardingSeen"] ? "true" : "false"; ?> &&
       <?php echo ($cfg["ui"]["onboardingTourEnabled"] ?? true) ? "true" : "false"; ?>) {
     erTourStart();
   }

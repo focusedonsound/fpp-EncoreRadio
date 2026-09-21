@@ -9,8 +9,12 @@ FPPDIR="${FPPDIR:-}"
 SRCDIR="${SRCDIR:-}"
 PLUGINDIR="${PLUGINDIR:-}"
 
-CFG_DIR="/home/fpp/media/config"
+CFG_DIR="/home/fpp/media/plugindata/fpp-EncoreRadio"
 CFG_FILE="${CFG_DIR}/encoreradio.json"
+# Trial-hour tracking lives in its own file, separate from the settings
+# the operator edits directly, so clearing/resetting general settings
+# doesn't incidentally reset it too. See er_premium_gate.sh/er_track_usage.sh.
+TRIAL_FILE="${CFG_DIR}/trial_state.json"
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
 LOG_DIR="/home/fpp/media/logs"
 
@@ -83,13 +87,10 @@ install_raspotify_if_needed() {
   # package for Raspberry Pi - a proper .deb, not a random curl|sh script.
   if command -v librespot >/dev/null 2>&1 || dpkg -s raspotify >/dev/null 2>&1; then
     log "Raspotify/librespot already installed."
-    # Still needs enabling/starting even when the package is already
-    # present - fpp_uninstall.sh deliberately disables (but doesn't
-    # remove) the service, so a plain reinstall must re-enable it or
-    # Spotify silently stays broken after an uninstall/reinstall cycle
-    # (found via real-hardware testing).
-    systemctl enable raspotify.service 2>&1 || true
-    systemctl start raspotify.service 2>&1 || true
+    # Whether it ends up enabled/started is decided below by
+    # er_sync_spotify_service.sh, based on whether Spotify is actually
+    # configured - not unconditionally, which would leave every free-tier
+    # install broadcasting a permanent Spotify Connect device.
     return 0
   fi
 
@@ -187,9 +188,11 @@ cfg.setdefault('spotify', {})['deviceName'] = '${device_name}'
 json.dump(cfg, open('$CFG_FILE', 'w'), indent=2)
 " 2>/dev/null || true
 
+  # The raspotify .deb's own postinst may enable/start the service; leave
+  # the actual enabled/started decision to er_sync_spotify_service.sh
+  # (called from main(), below) so a fresh free-tier install doesn't end
+  # up broadcasting a Spotify Connect device it never asked for.
   systemctl daemon-reload
-  systemctl enable raspotify.service 2>&1 || true
-  systemctl restart raspotify.service 2>&1 || true
 
   log "Raspotify installed - device name: ${device_name}. One-time pairing still needed (see plugin page)."
 }
@@ -251,7 +254,7 @@ Type=simple
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0755 /run/pulse
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config/pulse
-ExecStart=/usr/bin/pulseaudio --system -nF /etc/pulse/system.pa --disallow-exit --exit-idle-time=-1 --log-target=file:/home/fpp/media/logs/plugin-fpp-EncoreRadio-pulse.log
+ExecStart=/usr/bin/pulseaudio --system -nF /etc/pulse/system.pa --disallow-exit --exit-idle-time=-1 --log-target=journald
 ExecStartPost=/bin/sh -c 'chmod 0666 /run/pulse/native || true'
 Restart=on-failure
 RestartSec=1
@@ -287,12 +290,28 @@ seed_default_config_if_missing() {
   ensure_dir "$STATE_DIR"
   ensure_dir "$LOG_DIR"
 
+  # plugindata/<repoName> is where credentials belong (Plugin Guidelines
+  # §14.11) - 0700/fpp:fpp so nothing but this plugin (and root) can read
+  # the Pandora/CIFS passwords and Spotify/license secrets living inside.
+  chown fpp:fpp "$CFG_DIR" 2>/dev/null || true
+  chmod 700 "$CFG_DIR" || true
+
   # FPP Commands (and this page's Start/Stop buttons) run as the 'fpp' user,
   # not root - state dir needs to be writable by it or every playback
   # attempt fails on the very first PID-file write (confirmed on real
   # hardware: er_relay.sh couldn't write relay.pid here when the dir was
   # left root-owned).
   chown -R fpp:fpp "$STATE_DIR" 2>/dev/null || true
+
+  # Upgrade path: earlier releases kept this file (with all its
+  # credentials) in media/config at 0664. Migrate it in place rather than
+  # silently starting a fresh config and abandoning it - it already
+  # contains real secrets, so move it, don't copy it.
+  local OLD_CFG_FILE="/home/fpp/media/config/encoreradio.json"
+  if [[ ! -f "$CFG_FILE" && -f "$OLD_CFG_FILE" ]]; then
+    mv "$OLD_CFG_FILE" "$CFG_FILE"
+    log "Migrated existing config from ${OLD_CFG_FILE} to ${CFG_FILE}"
+  fi
 
   if [[ ! -f "$CFG_FILE" ]]; then
     cat > "$CFG_FILE" <<'EOF'
@@ -333,8 +352,7 @@ seed_default_config_if_missing() {
   "license": {
     "email": "",
     "registered": false,
-    "key": "",
-    "trialSecondsUsed": 0
+    "key": ""
   },
   "ui": {
     "onboardingSeen": false,
@@ -342,12 +360,47 @@ seed_default_config_if_missing() {
   }
 }
 EOF
-    chown fpp:fpp "$CFG_FILE" 2>/dev/null || true
-    chmod 664 "$CFG_FILE" || true
     log "Created default config: $CFG_FILE"
   else
     log "Config already exists: $CFG_FILE"
   fi
+
+  # Always re-assert ownership/permissions, whether the file was just
+  # created, just migrated, or already existed from a pre-migration
+  # install that left it at the old 0664.
+  chown fpp:fpp "$CFG_FILE" 2>/dev/null || true
+  chmod 600 "$CFG_FILE" || true
+
+  # Upgrade path: earlier releases kept trialSecondsUsed inside the main
+  # config's license block. Pull it out into its own file (below) rather
+  # than resetting everyone's trial progress on upgrade, then strip it
+  # from the main config so there's exactly one place it lives.
+  local migrated_trial_seconds
+  migrated_trial_seconds="$(python3 -c "
+import json
+try:
+    cfg = json.load(open('$CFG_FILE'))
+    print(int(cfg.get('license', {}).get('trialSecondsUsed', 0)))
+except Exception:
+    print(0)
+" 2>/dev/null || echo 0)"
+  [[ -z "$migrated_trial_seconds" ]] && migrated_trial_seconds=0
+
+  if [[ ! -f "$TRIAL_FILE" ]]; then
+    printf '{\n  "trialSecondsUsed": %s\n}\n' "$migrated_trial_seconds" > "$TRIAL_FILE"
+    log "Created trial state file: $TRIAL_FILE (trialSecondsUsed=${migrated_trial_seconds})"
+  fi
+  chown fpp:fpp "$TRIAL_FILE" 2>/dev/null || true
+  chmod 600 "$TRIAL_FILE" || true
+
+  python3 -c "
+import json
+cfg = json.load(open('$CFG_FILE'))
+cfg.get('license', {}).pop('trialSecondsUsed', None)
+json.dump(cfg, open('$CFG_FILE', 'w'), indent=2)
+" 2>/dev/null || true
+  chown fpp:fpp "$CFG_FILE" 2>/dev/null || true
+  chmod 600 "$CFG_FILE" || true
 }
 
 fix_plugin_script_perms() {
@@ -554,6 +607,11 @@ main() {
   setup_system_pulseaudio_if_needed
   seed_default_config_if_missing
   install_raspotify_if_needed
+
+  local here
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  bash "${here}/scripts/er_sync_spotify_service.sh" 2>&1 || true
+
   fix_plugin_script_perms
   post_install_notes
 

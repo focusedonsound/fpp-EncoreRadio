@@ -25,13 +25,46 @@ if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files raspotify.s
   log "Stopped and disabled raspotify.service"
 fi
 
-# encoreradio-pulse.service is deliberately NOT touched here: it's a
-# shared PulseAudio socket (/run/pulse/native) that Announcement Assistant
-# (or a future install of it) may already be relying on if it deferred to
-# "reuse the existing socket" during its own install - see
-# docs/troubleshooting.md. Stopping it here could silently break another
-# installed plugin's audio with no way for this script to know whether
-# that's actually the case.
+# The encoreradio-pulse.service unit file only ever exists when THIS
+# plugin was the one that set up the shared PulseAudio socket
+# (/run/pulse/native) - if Announcement Assistant (or a previous Encore
+# Radio install) got there first, fpp_install.sh's
+# setup_system_pulseaudio_if_needed() detects the existing socket and
+# never creates this unit at all. So its presence/absence is a reliable
+# signal for whether it's safe to revert: reverting unconditionally would
+# risk breaking AA's audio if AA is relying on the same socket; skipping
+# it unconditionally (the previous behavior) left every trace of Encore
+# Radio's own PulseAudio changes in place even when nothing else was
+# using them, which the Plugin Guidelines don't allow ("no carve-out for
+# another plugin might be using it" - but that carve-out only applies
+# when it's actually true, which this checks for rather than assumes).
+PULSE_SVC="/etc/systemd/system/encoreradio-pulse.service"
+if [[ -f "$PULSE_SVC" ]]; then
+  log "Reverting Encore Radio's PulseAudio setup (nothing else appears to depend on it)"
+  systemctl stop encoreradio-pulse.service 2>/dev/null || true
+  systemctl disable encoreradio-pulse.service 2>/dev/null || true
+  rm -f "$PULSE_SVC"
+  systemctl daemon-reload 2>/dev/null || true
+
+  SYSTEM_PA="/etc/pulse/system.pa"
+  SYSTEM_PA_BAK="${SYSTEM_PA}.er.bak"
+  if [[ -f "$SYSTEM_PA_BAK" ]]; then
+    mv -f "$SYSTEM_PA_BAK" "$SYSTEM_PA"
+    log "Restored original /etc/pulse/system.pa from backup"
+  elif [[ -f "$SYSTEM_PA" ]]; then
+    rm -f "$SYSTEM_PA"
+    log "Removed Encore Radio's system.pa (no pre-install backup existed)"
+  fi
+
+  CLIENT_CONF="/home/fpp/.config/pulse/client.conf"
+  if [[ -f "$CLIENT_CONF" ]]; then
+    rm -f "$CLIENT_CONF"
+    log "Removed fpp user's Pulse client pin"
+  fi
+  pkill -u fpp pulseaudio 2>/dev/null || true
+else
+  log "encoreradio-pulse.service not present - Encore Radio never owned the shared PulseAudio setup (or another plugin does) - leaving PulseAudio untouched."
+fi
 
 # Config (encoreradio.json) is intentionally left in place so a reinstall
 # doesn't lose the owner's source/announcement settings. State (PID files,

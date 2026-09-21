@@ -42,8 +42,7 @@ Set it up once, and it runs itself every night on your own FPP schedule.
 | Announcement Assistant integration | ✅ | ✅ |
 
 Try any premium feature free for 10 hours of real playback. After that,
-a license unlocks it for the year - **$5**. No subscriptions buried
-anywhere else, no surprise renewals, just one simple key.
+a license key unlocks it for the year.
 
 ## Getting started
 

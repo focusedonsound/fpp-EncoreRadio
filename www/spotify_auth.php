@@ -15,7 +15,7 @@ declare(strict_types=1);
 // token exchange itself still happens entirely on the local device.
 define("ER_SPOTIFY_FIXED_REDIRECT_URI", "https://encoreradio-license.nscilingo.workers.dev/spotify/callback");
 
-$configFile = "/home/fpp/media/config/encoreradio.json";
+$configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 $cfg = [];
 if (file_exists($configFile)) {
   $j = json_decode(@file_get_contents($configFile), true);

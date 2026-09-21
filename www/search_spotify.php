@@ -11,7 +11,7 @@ header('Cache-Control: no-store');
 // playlist I don't own," which is what actually makes Spotify the richer
 // premium tier over TuneIn/Pandora's fixed-station model.
 
-$configFile = "/home/fpp/media/config/encoreradio.json";
+$configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 $query = strtolower(trim((string)($_GET['q'] ?? '')));
 
 function respond($status, $results, $message = "") {

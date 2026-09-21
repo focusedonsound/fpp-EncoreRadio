@@ -3,7 +3,7 @@ ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-$configFile = "/home/fpp/media/config/encoreradio.json";
+$configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 
 function respond($ok, $msg, $extra = []) {
   echo json_encode(array_merge([
@@ -26,7 +26,7 @@ function defaultConfig() {
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
-    "license" => ["email" => "", "registered" => false, "key" => "", "trialSecondsUsed" => 0],
+    "license" => ["email" => "", "registered" => false, "key" => ""],
     "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
 }
@@ -45,16 +45,9 @@ if (file_exists($configFile)) {
   if (is_array($j)) $cfg = array_replace_recursive($cfg, $j);
 }
 
-// Registration (just an email, nothing else) is the one soft gate for the
-// whole plugin - enforced here, not just cosmetically greyed out in the
-// UI, since nothing downstream (TuneIn included) can be configured
-// without a successful save. Registration itself happens through
-// license_register.php, which sets this flag directly - this endpoint
-// only checks it, it never sets it.
-if (!($cfg["license"]["registered"] ?? false)) {
-  respond(false, "Register your email at the top of the page first - it's the only thing required before you can use Encore Radio.");
-}
-
+// No registration/email requirement here (or anywhere) to save or use any
+// source, free or premium - Pandora/Spotify's own trial-hour gate is
+// enforced separately, at playback start, by er_premium_gate.sh.
 $source = trim((string)($_POST["source"] ?? ""));
 if (!in_array($source, ["", "customstream", "netshare", "tunein", "pandora", "spotify"], true)) {
   respond(false, "Invalid source: $source");
@@ -163,8 +156,9 @@ for ($i = 1; $i <= 5; $i++) {
 }
 $cfg["fallback"]["chain"] = $fallbackChain;
 
-// License (M4) - email/key are the only fields this form edits;
-// trialSecondsUsed is only ever written by er_track_usage.sh.
+// License - email/key are the only fields this form edits. Trial-hour
+// tracking lives entirely separately, in trial_state.json, written only
+// by er_track_usage.sh.
 $cfg["license"]["email"] = trim((string)($_POST["license_email"] ?? $cfg["license"]["email"]));
 $cfg["license"]["key"] = trim((string)($_POST["license_key"] ?? $cfg["license"]["key"]));
 
@@ -202,5 +196,21 @@ if (!@rename($tmp, $configFile)) {
   @unlink($tmp);
   respond(false, "Failed to replace config file: $configFile");
 }
+@chmod($configFile, 0600);
+
+// Fire-and-forget: only Raspotify's enabled/running state depends on this
+// (see scripts/er_sync_spotify_service.sh for why it can't just be set
+// unconditionally at install) - a dispatch failure here just means it's
+// re-synced on the next save, so it must never fail the save itself.
+$ch = curl_init('http://localhost/api/command/' . rawurlencode('Encore Radio - Sync Spotify Service'));
+curl_setopt_array($ch, [
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_POST => true,
+  CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+  CURLOPT_POSTFIELDS => '[]',
+  CURLOPT_TIMEOUT => 15,
+]);
+@curl_exec($ch);
+curl_close($ch);
 
 respond(true, "Saved.");

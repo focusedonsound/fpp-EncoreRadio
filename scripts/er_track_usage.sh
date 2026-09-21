@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Encore Radio - premium (Pandora, Spotify) usage-time tracking.
 #
+# Entirely local, and stays that way: this is a trial-hour counter, not a
+# usage-reporting endpoint - nothing here is ever sent to the license
+# server or anywhere else. Deliberately resettable by anyone willing to
+# edit or delete trial_state.json by hand; that's the accepted trade-off
+# for not phoning home.
+#
 # Usage:
 #   er_track_usage.sh start     - call when premium playback actually begins
 #   er_track_usage.sh finalize  - call when it stops; adds elapsed time to
@@ -8,11 +14,10 @@
 
 set -uo pipefail
 
-CFG_FILE="/home/fpp/media/config/encoreradio.json"
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
+TRIAL_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 SESSION_FILE="${STATE_DIR}/premium_session_start"
-LICENSE_SERVER_BASE="https://encoreradio-license.nscilingo.workers.dev/api"
 
 mkdir -p "$STATE_DIR" 2>/dev/null || true
 
@@ -36,32 +41,21 @@ case "${1:-}" in
 
         NEW_TOTAL="$(python3 -c "
 import json
-cfg = json.load(open('$CFG_FILE'))
-cfg.setdefault('license', {})
-total = int(cfg['license'].get('trialSecondsUsed', 0)) + $ELAPSED
-cfg['license']['trialSecondsUsed'] = total
-tmp = '$CFG_FILE.tmp'
-json.dump(cfg, open(tmp, 'w'), indent=2)
+try:
+    trial = json.load(open('$TRIAL_FILE'))
+except Exception:
+    trial = {}
+total = int(trial.get('trialSecondsUsed', 0)) + $ELAPSED
+trial['trialSecondsUsed'] = total
+tmp = '$TRIAL_FILE.tmp'
+json.dump(trial, open(tmp, 'w'), indent=2)
 import os
-os.replace(tmp, '$CFG_FILE')
+os.replace(tmp, '$TRIAL_FILE')
+os.chmod('$TRIAL_FILE', 0o600)
 print(total)
 " 2>/dev/null)"
 
         log "Premium session ended: +${ELAPSED}s (total used: ${NEW_TOTAL}s)"
-
-        # Best-effort report to the license server - failure here just
-        # means the next report catches it up; local tracking (above) is
-        # already authoritative for this device's own trial gate.
-        HWID="$(bash "$(dirname "${BASH_SOURCE[0]}")/er_hwid.sh" 2>/dev/null)"
-        EMAIL="$(python3 -c "
-import json
-try:    print(json.load(open('$CFG_FILE')).get('license', {}).get('email', ''))
-except: print('')
-" 2>/dev/null)"
-        curl -s -m 8 -X POST "${LICENSE_SERVER_BASE}/report-usage" \
-            -H "Content-Type: application/json" \
-            -d "{\"hwid\":\"${HWID}\",\"email\":\"${EMAIL}\",\"secondsUsedTotal\":${NEW_TOTAL}}" \
-            >> "$LOG_FILE" 2>&1 || log "WARNING: usage report to license server failed (server may not exist yet)"
         ;;
     *)
         echo "Usage: $0 {start|finalize}" >&2

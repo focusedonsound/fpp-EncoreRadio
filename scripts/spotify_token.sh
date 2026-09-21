@@ -11,7 +11,7 @@
 
 set -uo pipefail
 
-CFG_FILE="/home/fpp/media/config/encoreradio.json"
+CFG_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }

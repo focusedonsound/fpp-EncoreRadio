@@ -4,10 +4,15 @@ ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-// Matches scripts/er_premium_gate.sh's LICENSE_SERVER_BASE.
-$licenseServerBase = "https://encoreradio-license.nscilingo.workers.dev/api";
+// Purely local: saves the operator's email for their own reference (and
+// so the page can show "Registered as ...") and nothing else. No network
+// call, no hardware ID - registering doesn't gate anything and doesn't
+// power any server-side notification, so there's nothing here that
+// needs to leave the device. See www/save.php and
+// scripts/er_premium_gate.sh for how the trial/license gate actually
+// works, entirely separately from this.
 
-$configFile = "/home/fpp/media/config/encoreradio.json";
+$configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 
 function respond($ok, $msg) {
   echo json_encode(["status" => $ok ? "OK" : "ERROR", "message" => $msg]);
@@ -25,40 +30,12 @@ if (file_exists($configFile)) {
   if (is_array($j)) $cfg = $j;
 }
 
-$scriptDir = dirname(__DIR__) . "/scripts";
-$hwid = trim((string)shell_exec("bash " . escapeshellarg("{$scriptDir}/er_hwid.sh") . " 2>/dev/null"));
-if ($hwid === "" || $hwid === "unknown") {
-  respond(false, "Could not determine this device's hardware ID.");
-}
-
-$ch = curl_init("{$licenseServerBase}/register");
-curl_setopt_array($ch, [
-  CURLOPT_RETURNTRANSFER => true,
-  CURLOPT_POST => true,
-  CURLOPT_HTTPHEADER => ["Content-Type: application/json"],
-  CURLOPT_POSTFIELDS => json_encode(["email" => $email, "hwid" => $hwid]),
-  CURLOPT_TIMEOUT => 8,
-]);
-$response = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$curlError = curl_error($ch);
-curl_close($ch);
-
 $cfg["license"]["email"] = $email;
-// Registered is the soft gate for the whole plugin now (see save.php) -
-// set it as soon as we have a syntactically valid email, regardless of
-// whether the license server was reachable just now. The point is
-// capturing the email; a transient network failure here shouldn't lock
-// someone out of the plugin entirely, and the next usage report retries
-// the server-side registration anyway (see er_track_usage.sh).
 $cfg["license"]["registered"] = true;
 
 $tmp = $configFile . ".tmp";
 @file_put_contents($tmp, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
 @rename($tmp, $configFile);
+@chmod($configFile, 0600);
 
-if ($httpCode === 200) {
-  respond(true, "Registered! We'll email you when your trial is running low, and if it runs out.");
-}
-
-respond(true, "Registered locally - we'll keep trying to reach the license server in the background, so you're all set either way. (" . ($curlError ?: "HTTP {$httpCode}") . ")");
+respond(true, "Saved.");

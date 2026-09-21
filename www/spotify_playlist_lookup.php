@@ -9,7 +9,7 @@ header('Cache-Control: no-store');
 // often faster than typing keywords into search_spotify.php, and also
 // reaches playlists that keyword search just doesn't surface well.
 
-$configFile = "/home/fpp/media/config/encoreradio.json";
+$configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 $input = trim((string)($_GET['url'] ?? ''));
 
 function respond($status, $data = [], $message = "") {

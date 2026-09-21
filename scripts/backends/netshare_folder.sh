@@ -21,12 +21,19 @@
 
 set -euo pipefail
 
-CFG_FILE="/home/fpp/media/config/encoreradio.json"
+CFG_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MOUNT_POINT="${STATE_DIR}/netshare_mount"
+# Deliberately NOT under media/ - FPP's own file manager, backup, and
+# crash bundler walk media/ and would stat/open anything under it,
+# including a mountpoint. If the NAS ever goes away, that would hang
+# those (unrelated) processes in uninterruptible sleep waiting on the
+# kernel CIFS client, not just this plugin's own requests. /run is
+# tmpfs, always exists, and is never walked by anything else in FPP.
+MOUNT_POINT="/run/fpp-EncoreRadio-netshare"
 PLAYLIST_FILE="${STATE_DIR}/netshare_playlist.txt"
+CREDS_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/netshare_creds"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [netshare] $*" >> "$LOG_FILE"; }
@@ -57,6 +64,17 @@ if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
     umount "$MOUNT_POINT" 2>/dev/null || umount -l "$MOUNT_POINT" 2>/dev/null || true
 fi
 
+# Credentials file instead of username=/password= on the mount command
+# line, where they'd be visible to anything that can read this process's
+# argv (e.g. /proc/<pid>/cmdline, `ps auxww`) for as long as the mount
+# command runs. 0600, written fresh each run, never left with a stale
+# password from a previous config if the share is later set back to guest.
+: > "$CREDS_FILE"
+chmod 600 "$CREDS_FILE"
+if [[ -n "$USERNAME" ]]; then
+    printf 'username=%s\npassword=%s\n' "$USERNAME" "$PASSWORD" > "$CREDS_FILE"
+fi
+
 # CIFS has no native POSIX permissions, so without uid/gid/file_mode/
 # dir_mode the kernel driver defaults the mount to root-only-readable.
 # This script and everything it starts (the relay, ffplay) all run as
@@ -65,10 +83,18 @@ fi
 # readable the same way regardless of which user ends up touching them.
 FPP_UID="$(id -u fpp)"
 FPP_GID="$(id -g fpp)"
+# soft (not the kernel default of hard) + a bounded timeo/retrans: if the
+# NAS drops off the network mid-session, in-flight I/O against this mount
+# fails after a few seconds instead of retrying forever in uninterruptible
+# sleep - the specific hang this mountpoint's own operations could
+# otherwise cause (moving it out of media/ above keeps that hang from
+# reaching FPP's *other* processes, but doesn't stop it from reaching
+# this plugin's own relay/ffmpeg without `soft` too).
+COMMON_OPTS="uid=${FPP_UID},gid=${FPP_GID},file_mode=0644,dir_mode=0755,ro,soft,timeo=30,retrans=2"
 if [[ -n "$USERNAME" ]]; then
-    MOUNT_OPTS="username=${USERNAME},password=${PASSWORD},uid=${FPP_UID},gid=${FPP_GID},file_mode=0644,dir_mode=0755,ro"
+    MOUNT_OPTS="credentials=${CREDS_FILE},${COMMON_OPTS}"
 else
-    MOUNT_OPTS="guest,uid=${FPP_UID},gid=${FPP_GID},file_mode=0644,dir_mode=0755,ro"
+    MOUNT_OPTS="guest,${COMMON_OPTS}"
 fi
 
 log "Mounting ${SHARE_PATH} (user=${USERNAME:-guest})"

@@ -21,7 +21,12 @@
 set -uo pipefail
 
 LICENSE_SERVER_BASE="https://encoreradio-license.nscilingo.workers.dev/api"
-CFG_FILE="/home/fpp/media/config/encoreradio.json"
+CFG_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json"
+# Trial-hour tracking is entirely local and entirely separate from the
+# license server - see er_track_usage.sh for why nothing here is ever
+# reported anywhere. The only network call in this whole script is
+# validate_license_key(), and only for operators who've entered a paid key.
+TRIAL_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRIAL_LIMIT_SECONDS=$((10 * 3600))
@@ -29,20 +34,16 @@ TRIAL_LIMIT_SECONDS=$((10 * 3600))
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [premium-gate] $*" >> "$LOG_FILE"; }
 
-license_cfg() {
-    python3 -c "
-import json
-try:    print(json.load(open('$CFG_FILE')).get('license', {}).get('$1', $2))
-except: print($2)
-" 2>/dev/null
-}
-
 LICENSE_KEY="$(python3 -c "
 import json
 try:    print(json.load(open('$CFG_FILE')).get('license', {}).get('key', ''))
 except: print('')
 " 2>/dev/null)"
-TRIAL_USED="$(license_cfg trialSecondsUsed 0)"
+TRIAL_USED="$(python3 -c "
+import json
+try:    print(int(json.load(open('$TRIAL_FILE')).get('trialSecondsUsed', 0)))
+except: print(0)
+" 2>/dev/null)"
 [[ -z "$TRIAL_USED" ]] && TRIAL_USED=0
 
 validate_license_key() {
@@ -93,7 +94,7 @@ cmd_check() {
         exit 0
     fi
 
-    echo "Trial hours used up. Register and enter a license key on the Encore Radio page to keep using Pandora or Spotify."
+    echo "Trial hours used up. Enter a license key on the Encore Radio page to keep using Pandora or Spotify."
     exit 1
 }
 

@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-CFG_DIR="/home/fpp/media/config"
+CFG_DIR="/home/fpp/media/plugindata/fpp-EncoreRadio"
 CFG_FILE="${CFG_DIR}/encoreradio.json"
 STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"

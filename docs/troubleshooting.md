@@ -62,14 +62,27 @@ timestamped, tagged lines there (`[er_relay]`, `[pulse-play]`, `[spotify]`,
 ## Encore Radio and Announcement Assistant fighting over PulseAudio
 
 Both plugins can stand up their own system-wide PulseAudio service
-(`encoreradio-pulse.service` / `announcementassistant-pulse.service`) if
-neither exists yet, but each checks for `/run/pulse/native` first and
-reuses it if already present - so in practice only one service ends up
-actually running PulseAudio, whichever installed second. This is expected
-and not a conflict by itself, but it does mean **uninstalling whichever
-plugin currently owns that service will silently break the other's audio**
-too. If that happens, reinstalling either plugin re-creates the shared
-PulseAudio service.
+(`encoreradio-pulse.service` / `announcementassistant-pulse.service`).
+Encore Radio's installer checks for `/run/pulse/native` first and reuses
+it if AA (or a previous Encore Radio install) already created it, rather
+than standing up a second one. **Announcement Assistant's installer does
+not currently do the same check** - if it's installed after Encore Radio,
+it overwrites `/etc/pulse/system.pa` with its own (functionally
+equivalent) copy and creates its own unit anyway, so both units end up
+enabled. In practice this doesn't break playback (the configs are
+interchangeable), but it does mean two systemd units are both trying to
+own the same socket.
+
+Encore Radio's uninstaller only reverts its PulseAudio changes when
+`encoreradio-pulse.service` exists - i.e. only when Encore Radio was the
+one that actually created the shared setup - so uninstalling Encore Radio
+is safe even if AA is relying on it. The reverse isn't currently
+guaranteed: uninstalling AA removes its own unit and restores its own
+backup unconditionally, which can take the shared socket down (and, if
+AA installed after Encore Radio, restore the wrong `system.pa`) even
+if Encore Radio still needs it. If Spotify/Pandora/TuneIn playback stops
+working after uninstalling AA, reinstalling Encore Radio recreates the
+shared PulseAudio service.
 
 ## Spotify: "device not found" / "has it been paired yet?"
 

@@ -4,7 +4,7 @@ ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-$configFile = "/home/fpp/media/config/encoreradio.json";
+$configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 
 $cfg = [];
 if (file_exists($configFile)) {
@@ -19,5 +19,6 @@ if (@file_put_contents($tmp, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPE
   echo json_encode(["status" => "ERROR", "message" => "Failed to save"]);
   exit;
 }
+@chmod($configFile, 0600);
 
 echo json_encode(["status" => "OK"]);
