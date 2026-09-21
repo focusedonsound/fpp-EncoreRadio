@@ -57,6 +57,11 @@ $raspotifyInstalled = file_exists("/usr/bin/librespot");
 
 $registered = (bool)($cfg["license"]["registered"] ?? false);
 $hasLicenseKey = trim((string)$cfg["license"]["key"]) !== "";
+// Pandora/Spotify/Rotation/Fallback (all premium) are locked behind
+// registration OR an existing license key - never behind a default
+// setting, and free sources (customstream/netshare/TuneIn) are never
+// gated at all. Enforced again server-side in save.php, not just here.
+$premiumUnlocked = $registered || $hasLicenseKey;
 $trialSecondsUsed = loadTrialSecondsUsed("/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json");
 $trialSecondsRemaining = max(0, (10 * 3600) - $trialSecondsUsed);
 $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
@@ -185,25 +190,28 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   <div class="fppTableContents">
     <table class="fppSelectableRowTable" style="width:100%;">
       <thead>
-        <tr><th style="padding:8px;"><i class="fas fa-fw fa-envelope"></i> Your Email (optional)</th></tr>
+        <tr><th style="padding:8px;"><i class="fas fa-fw fa-envelope"></i> Register</th></tr>
       </thead>
       <tbody>
         <tr><td style="padding:8px;">
           <?php if ($registered): ?>
-            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Saved as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>.</p>
+            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Pandora, Spotify, Rotation, and Fallback are unlocked below.</p>
           <?php else: ?>
             <p class="text-muted">
-              Entirely optional, and not required for anything below
-              (including Pandora/Spotify's trial). If you save an email,
-              it's kept on this device, and we'll also send a one-time
-              welcome email plus up to three check-ins over the next two
-              weeks (day 3/7/14) about getting a license - skipped
-              automatically once you have one. That's the only thing that
-              ever gets sent: just this address, never any usage data.
+              Encore Radio is built to be your one solution for keeping
+              the music going after the show ends - and we're actively
+              adding new features to keep your station running all day,
+              not just after hours. Register your email to unlock
+              Pandora, Spotify, Source Rotation, and Source Fallback,
+              get a welcome note now, and a few check-ins over the next
+              couple weeks if you haven't picked up a license by then
+              (stops automatically once you have one). TuneIn, custom
+              stream, and network share stay free either way - only this
+              address ever gets sent, never usage data.
             </p>
             <div class="d-flex gap-2 align-items-center flex-wrap">
               <input type="email" class="form-control form-control-sm" id="er-signup-email" placeholder="you@example.com" style="width:100%; max-width:320px;" />
-              <button type="button" class="er-btn" onclick="erSignUp()"><i class="fas fa-fw fa-floppy-disk"></i> Save</button>
+              <button type="button" class="er-btn" onclick="erSignUp()"><i class="fas fa-fw fa-user-plus"></i> Register</button>
             </div>
             <span id="er-signup-status" class="d-block mt-2 small"></span>
           <?php endif; ?>
@@ -243,12 +251,12 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                   <label class="form-check-label" for="er-source-tunein"><strong>TuneIn</strong> <span class="text-muted small">- free</span></label>
                 </div>
                 <div class="form-check">
-                  <input class="form-check-input" type="radio" name="source" id="er-source-pandora" value="pandora" <?php echo $cfg["source"] === "pandora" ? "checked" : ""; ?> />
-                  <label class="form-check-label" for="er-source-pandora"><strong>Pandora</strong> <span class="text-muted small">- premium</span></label>
+                  <input class="form-check-input" type="radio" name="source" id="er-source-pandora" value="pandora" <?php echo $cfg["source"] === "pandora" ? "checked" : ""; ?> <?php echo $premiumUnlocked ? "" : "disabled"; ?> />
+                  <label class="form-check-label" for="er-source-pandora"><strong>Pandora</strong> <span class="text-muted small">- premium<?php echo $premiumUnlocked ? "" : " (register above, or enter a license key below, to unlock)"; ?></span></label>
                 </div>
                 <div class="form-check">
-                  <input class="form-check-input" type="radio" name="source" id="er-source-spotify" value="spotify" <?php echo $cfg["source"] === "spotify" ? "checked" : ""; ?> />
-                  <label class="form-check-label" for="er-source-spotify"><strong>Spotify</strong> <span class="text-muted small">- premium</span></label>
+                  <input class="form-check-input" type="radio" name="source" id="er-source-spotify" value="spotify" <?php echo $cfg["source"] === "spotify" ? "checked" : ""; ?> <?php echo $premiumUnlocked ? "" : "disabled"; ?> />
+                  <label class="form-check-label" for="er-source-spotify"><strong>Spotify</strong> <span class="text-muted small">- premium<?php echo $premiumUnlocked ? "" : " (register above, or enter a license key below, to unlock)"; ?></span></label>
                 </div>
               </div>
             </td>
@@ -332,6 +340,13 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
           <tr id="er-pandora-section" style="display:none;">
             <td colspan="2" style="padding:8px;">
+              <fieldset <?php echo $premiumUnlocked ? "" : "disabled"; ?> style="<?php echo $premiumUnlocked ? "" : "opacity:0.55;"; ?> border:0; padding:0; margin:0;">
+              <?php if (!$premiumUnlocked): ?>
+                <p class="small text-warning">
+                  <i class="fas fa-fw fa-lock"></i>
+                  Register your email above, or enter a license key below, to unlock Pandora.
+                </p>
+              <?php endif; ?>
               <table style="width:100%; max-width:520px;">
                 <tr>
                   <td class="py-1">Pandora Username</td>
@@ -362,11 +377,19 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                 prints available station IDs to the Encore Radio log on first login
                 if you're not sure which to use.
               </p>
+              </fieldset>
             </td>
           </tr>
 
           <tr id="er-spotify-section" style="display:none;">
             <td colspan="2" style="padding:8px;">
+              <fieldset <?php echo $premiumUnlocked ? "" : "disabled"; ?> style="<?php echo $premiumUnlocked ? "" : "opacity:0.55;"; ?> border:0; padding:0; margin:0;">
+              <?php if (!$premiumUnlocked): ?>
+                <p class="small text-warning">
+                  <i class="fas fa-fw fa-lock"></i>
+                  Register your email above, or enter a license key below, to unlock Spotify.
+                </p>
+              <?php endif; ?>
               <?php if (!$raspotifyInstalled): ?>
                 <p class="text-danger">
                   <i class="fas fa-fw fa-triangle-exclamation"></i>
@@ -438,6 +461,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
               <?php endif; ?>
               <input type="hidden" name="spotify_playlistUri" id="er-spotify-playlistUri" value="<?php echo htmlspecialchars($cfg["spotify"]["playlistUri"]); ?>" />
               <input type="hidden" name="spotify_playlistName" id="er-spotify-playlistName" value="<?php echo htmlspecialchars($cfg["spotify"]["playlistName"]); ?>" />
+              </fieldset>
             </td>
           </tr>
         </tbody>
@@ -549,11 +573,20 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
   <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-rotation">
     <div class="fppTableContents">
+      <fieldset <?php echo $premiumUnlocked ? "" : "disabled"; ?> style="<?php echo $premiumUnlocked ? "" : "opacity:0.55;"; ?> border:0; padding:0; margin:0;">
       <table class="fppSelectableRowTable" style="width:100%;">
         <thead>
           <tr><th colspan="2" style="padding:8px;"><i class="fas fa-fw fa-clock-rotate-left"></i> Source Rotation (Premium)</th></tr>
         </thead>
         <tbody>
+          <?php if (!$premiumUnlocked): ?>
+          <tr><td colspan="2" style="padding:8px;">
+            <p class="small text-warning mb-0">
+              <i class="fas fa-fw fa-lock"></i>
+              Register your email above, or enter a license key below, to unlock Source Rotation.
+            </p>
+          </td></tr>
+          <?php endif; ?>
           <tr><td colspan="2" style="padding:8px;">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="rotation_enabled" id="er-rotation-enabled" value="1" <?php echo $cfg["rotation"]["enabled"] ? "checked" : ""; ?> />
@@ -574,16 +607,26 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
           </td></tr>
         </tbody>
       </table>
+      </fieldset>
     </div>
   </div>
 
   <div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-fallback">
     <div class="fppTableContents">
+      <fieldset <?php echo $premiumUnlocked ? "" : "disabled"; ?> style="<?php echo $premiumUnlocked ? "" : "opacity:0.55;"; ?> border:0; padding:0; margin:0;">
       <table class="fppSelectableRowTable" style="width:100%;">
         <thead>
           <tr><th colspan="2" style="padding:8px;"><i class="fas fa-fw fa-shield-halved"></i> Source Fallback (Premium)</th></tr>
         </thead>
         <tbody>
+          <?php if (!$premiumUnlocked): ?>
+          <tr><td colspan="2" style="padding:8px;">
+            <p class="small text-warning mb-0">
+              <i class="fas fa-fw fa-lock"></i>
+              Register your email above, or enter a license key below, to unlock Source Fallback.
+            </p>
+          </td></tr>
+          <?php endif; ?>
           <tr><td colspan="2" style="padding:8px;">
             <div class="form-check">
               <input class="form-check-input" type="checkbox" name="fallback_enabled" id="er-fallback-enabled" value="1" <?php echo $cfg["fallback"]["enabled"] ? "checked" : ""; ?> />
@@ -621,6 +664,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
           <?php endfor; ?>
         </tbody>
       </table>
+      </fieldset>
     </div>
   </div>
 
