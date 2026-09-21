@@ -254,7 +254,7 @@ Type=simple
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0755 /run/pulse
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config/pulse
-ExecStart=/usr/bin/pulseaudio --system -nF /etc/pulse/system.pa --disallow-exit --exit-idle-time=-1 --log-target=journald
+ExecStart=/usr/bin/pulseaudio --system -nF /etc/pulse/system.pa --disallow-exit --exit-idle-time=-1 --log-target=journal
 ExecStartPost=/bin/sh -c 'chmod 0666 /run/pulse/native || true'
 Restart=on-failure
 RestartSec=1
