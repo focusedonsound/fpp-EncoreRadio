@@ -194,9 +194,12 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
           <?php else: ?>
             <p class="text-muted">
               Entirely optional, and not required for anything below
-              (including Pandora/Spotify's trial) - this is just kept on
-              this device for your own reference, e.g. if you manage more
-              than one controller. Nothing is sent anywhere when you save it.
+              (including Pandora/Spotify's trial). If you save an email,
+              it's kept on this device, and we'll also send a one-time
+              welcome email plus up to three check-ins over the next two
+              weeks (day 3/7/14) about getting a license - skipped
+              automatically once you have one. That's the only thing that
+              ever gets sent: just this address, never any usage data.
             </p>
             <div class="d-flex gap-2 align-items-center flex-wrap">
               <input type="email" class="form-control form-control-sm" id="er-signup-email" placeholder="you@example.com" style="width:100%; max-width:320px;" />

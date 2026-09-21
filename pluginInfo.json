@@ -11,12 +11,12 @@
   "minMemoryMB": 512,
   "minCpuCores": 2,
   "privacy": {
-    "summary": "Streams your chosen station or shared library (free) or Pandora/Spotify (premium) through FPP. The 10-hour Pandora/Spotify trial is tracked entirely on this device and never reported anywhere - the license server is only ever contacted to validate a paid license key you've entered, and to relay Spotify's OAuth handshake during Spotify setup.",
+    "summary": "Streams your chosen station or shared library (free) or Pandora/Spotify (premium) through FPP. The 10-hour Pandora/Spotify trial is tracked entirely on this device and never reported anywhere. The license server is contacted to validate a paid license key you've entered, to relay Spotify's OAuth handshake during Spotify setup, and - only if you choose to save an email on the Encore Radio page - to send a welcome message and a few reminders about getting a license.",
     "sends": [
       {
         "to": "encoreradio-license.nscilingo.workers.dev",
-        "what": "a hardware ID (CPU serial/machine-id) and the license key you entered; also relays the Spotify OAuth authorization code and this device's local callback URL during Spotify setup, since Spotify only accepts an https redirect URI and this device's LAN address can't be one",
-        "why": "validating a paid license key against the device it was entered on, and completing Spotify's OAuth handshake",
+        "what": "a hardware ID (CPU serial/machine-id) and the license key you entered, when validating a license; separately, only if you save an email on the Encore Radio page, that email address alone (never a hardware ID, never usage data) to trigger a welcome message and up to three day-3/7/14 reminders about getting a license, automatically stopped once you have one; also relays the Spotify OAuth authorization code and this device's local callback URL during Spotify setup, since Spotify only accepts an https redirect URI and this device's LAN address can't be one",
+        "why": "validating a paid license key against the device it was entered on, optional email reminders about licensing, and completing Spotify's OAuth handshake",
         "alwaysOn": false
       },
       {
@@ -64,7 +64,7 @@
     ],
     "collects": [
       {
-        "what": "an optional registration email (not required for anything - kept only for the operator's own reference) and license key/status",
+        "what": "an optional registration email (not required for anything; if provided, also sent to the license server - see sends, above - to trigger a welcome message and licensing reminders) and license key/status",
         "about": "operator",
         "keptDays": null,
         "canDelete": false,
