@@ -11,12 +11,12 @@
   "minMemoryMB": 512,
   "minCpuCores": 2,
   "privacy": {
-    "summary": "Streams your chosen station or shared library (free) or Pandora/Spotify (premium) through FPP. The 10-hour Pandora/Spotify trial is tracked entirely on this device and never reported anywhere. The license server is contacted to validate a paid license key you've entered, to relay Spotify's OAuth handshake during Spotify setup, and - only if you choose to save an email on the Encore Radio page - to send a welcome message and a few reminders about getting a license.",
+    "summary": "Streams a station or your shared library (free), or Pandora/Spotify (premium), through FPP. The 10-hour trial is tracked locally and never reported anywhere.",
     "sends": [
       {
         "to": "encoreradio-license.nscilingo.workers.dev",
-        "what": "a hardware ID (CPU serial/machine-id) and the license key you entered, when validating a license; separately, only if you save an email on the Encore Radio page, that email address alone (never a hardware ID, never usage data) to trigger a welcome message and up to three day-3/7/14 reminders about getting a license, automatically stopped once you have one; also relays the Spotify OAuth authorization code and this device's local callback URL during Spotify setup, since Spotify only accepts an https redirect URI and this device's LAN address can't be one",
-        "why": "validating a paid license key against the device it was entered on, optional email reminders about licensing, and completing Spotify's OAuth handshake",
+        "what": "Hardware ID + license key when validating; your email if saved, for reminders; relays Spotify OAuth.",
+        "why": "License validation, optional email reminders, and Spotify's OAuth handshake.",
         "alwaysOn": false
       },
       {
@@ -64,14 +64,14 @@
     ],
     "collects": [
       {
-        "what": "an optional registration email (not required for anything; if provided, also sent to the license server - see sends, above - to trigger a welcome message and licensing reminders) and license key/status",
+        "what": "An optional email (not required for anything) and license key/status.",
         "about": "operator",
         "keptDays": null,
         "canDelete": false,
         "where": "plugindata/fpp-EncoreRadio/encoreradio.json (mode 600)"
       },
       {
-        "what": "cumulative premium (Pandora/Spotify) trial seconds used - tracked entirely locally, never sent anywhere, and freely resettable by editing or deleting this file",
+        "what": "Cumulative premium trial seconds used - local only, resettable by editing this file.",
         "about": "operator",
         "keptDays": null,
         "canDelete": true,
@@ -102,16 +102,16 @@
     "sensors": [],
     "remoteAccess": "lan",
     "systemChanges": [
-      { "kind": "service", "what": "creates and enables encoreradio-pulse.service, a system-wide PulseAudio instance; overwrites /etc/pulse/system.pa (backed up and restored on uninstall) and writes /home/fpp/.config/pulse/client.conf pointing the fpp user's PulseAudio clients - including FPP's own audio output - at that system instance" },
-      { "kind": "service", "what": "enables and starts the Raspotify (Spotify Connect) systemd service once the operator configures Spotify (premium); not started for operators who never use the Spotify source" },
-      { "kind": "privilege", "what": "adds the pulse and fpp users to the audio group" },
-      { "kind": "download", "what": "downloads and installs the Raspotify .deb release from dtcooper.github.io, checksum-verified via api.github.com" },
-      { "kind": "file", "what": "edits /etc/raspotify/conf (backend/device name) when Raspotify is installed" },
-      { "kind": "network", "what": "mounts an operator-specified network share (CIFS/SMB) on demand for the Network Share source, at /run/fpp-EncoreRadio-netshare (outside media/, unmounted when playback stops)" },
-      { "kind": "network", "what": "the audio relay binds 0.0.0.0:8123 (configurable) while a source is playing" }
+      { "kind": "service", "what": "Creates encoreradio-pulse.service (system PulseAudio); overwrites /etc/pulse/system.pa, pins fpp's Pulse clients to it." },
+      { "kind": "service", "what": "Enables Raspotify (Spotify Connect) once Spotify is configured; not started otherwise." },
+      { "kind": "privilege", "what": "Adds the pulse and fpp users to the audio group." },
+      { "kind": "download", "what": "Downloads/installs the Raspotify .deb, checksum-verified via api.github.com." },
+      { "kind": "core-settings", "what": "Edits /etc/raspotify/conf (audio backend, device name) when Raspotify is installed." },
+      { "kind": "network", "what": "Mounts an operator-specified network share on demand, outside media/, unmounted when playback stops." },
+      { "kind": "network", "what": "The audio relay binds 0.0.0.0:8123 (configurable) while a source is playing." }
     ],
     "closedCode": false,
-    "other": "Uninstalling does not remove plugindata/fpp-EncoreRadio/ (encoreradio.json, trial_state.json) or the plugin's state directory: registration status, license data, trial-hour progress, and any saved Pandora/Spotify/network-share credentials remain on disk until deleted by hand. Uninstalling also does not remove the raspotify package or /etc/raspotify/conf (so a reinstall doesn't need to re-download it), and never touches the shared PulseAudio service/config if another installed plugin (e.g. Announcement Assistant) may also depend on it."
+    "other": "The PulseAudio system.pa rewrite also points every PulseAudio client running as the fpp user - including FPP's own audio output, not just this plugin's - at the shared instance; it's backed up before being overwritten and restored on uninstall, but only when this plugin was the one that created it (not when another plugin, e.g. Announcement Assistant, got there first - uninstalling never touches a shared setup it doesn't own). The license server's email flow (only if you save an email) sends nothing but that address, and stops automatically once you have a license key: a welcome message on signup, then reminders at day 3/7/14 if you're still unlicensed. During Spotify setup, the license server also relays the OAuth authorization code and this device's local callback URL back to it, since Spotify requires an https redirect URI and this device's LAN address can't be one - the token exchange itself still happens locally. Custom Internet Radio, TuneIn, and Network Share sources send requests only to the stream URL, station, or NAS you configure. Uninstalling does not remove plugindata/fpp-EncoreRadio/ (encoreradio.json, trial_state.json) or the plugin's state directory: registration status, license data, trial-hour progress, and any saved Pandora/Spotify/network-share credentials remain on disk until deleted by hand. It also does not remove the raspotify package or /etc/raspotify/conf, so a reinstall doesn't need to re-download it."
   },
   "versions": [
     {
