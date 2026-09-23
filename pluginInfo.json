@@ -91,8 +91,9 @@
     "remoteAccess": "lan",
     "systemChanges": [
       { "kind": "service", "what": "Creates and enables encoreradio-pulse.service (system-wide PulseAudio); overwrites /etc/pulse/system.pa" },
+      { "kind": "service", "what": "Enables Raspotify (raspotify.service) once Spotify is configured; not started otherwise" },
       { "kind": "privilege", "what": "Adds the pulse and fpp users to the audio group" },
-      { "kind": "download", "what": "Downloads/installs Raspotify (Spotify Connect); only enabled once Spotify is configured" },
+      { "kind": "download", "what": "Downloads/installs the Raspotify .deb from dtcooper.github.io, checksum-verified via api.github.com when available" },
       { "kind": "core-settings", "what": "Edits /etc/raspotify/conf (audio backend, device name) when Raspotify is installed" },
       { "kind": "network", "what": "Mounts a network share on demand (outside media/); the local relay listens on 127.0.0.1 only" }
     ],
