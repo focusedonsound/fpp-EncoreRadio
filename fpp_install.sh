@@ -300,7 +300,7 @@ ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0755 /run/pulse
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config/pulse
 ExecStart=/usr/bin/pulseaudio --system -nF /etc/pulse/system.pa --disallow-exit --exit-idle-time=-1 --log-target=journal
-ExecStartPost=/bin/sh -c 'chgrp audio /run/pulse/native && chmod 0660 /run/pulse/native || true'
+ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do [ -S /run/pulse/native ] && break; sleep 0.2; done; chgrp audio /run/pulse/native && chmod 0660 /run/pulse/native || true'
 Restart=on-failure
 RestartSec=1
 
