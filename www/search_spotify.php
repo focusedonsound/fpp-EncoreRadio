@@ -14,7 +14,7 @@ header('Cache-Control: no-store');
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 $query = strtolower(trim((string)($_GET['q'] ?? '')));
 
-function respond($status, $results, $message = "") {
+function erRespond($status, $results, $message = "") {
   echo json_encode(["status" => $status, "results" => $results, "message" => $message]);
   exit;
 }
@@ -26,7 +26,7 @@ if (file_exists($configFile)) {
 }
 $refreshToken = trim((string)($cfg["spotify"]["refreshToken"] ?? ""));
 if ($refreshToken === "") {
-  respond("ERROR", [], "Spotify not connected yet - use the Connect button first.");
+  erRespond("ERROR", [], "Spotify not connected yet - use the Connect button first.");
 }
 
 // Reuse the same token-refresh logic the playback scripts use, rather than
@@ -34,10 +34,10 @@ if ($refreshToken === "") {
 $scriptDir = dirname(__DIR__) . "/scripts";
 $token = trim((string)shell_exec("bash " . escapeshellarg("{$scriptDir}/spotify_token.sh") . " 2>/dev/null"));
 if ($token === "") {
-  respond("ERROR", [], "Could not get a valid Spotify access token - try reconnecting.");
+  erRespond("ERROR", [], "Could not get a valid Spotify access token - try reconnecting.");
 }
 
-function spotifyGet($url, $token) {
+function erSpotifyGet($url, $token) {
   $ch = curl_init($url);
   curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
@@ -51,9 +51,9 @@ function spotifyGet($url, $token) {
   return [$httpCode, is_array($data) ? $data : null];
 }
 
-[$httpCode, $data] = spotifyGet("https://api.spotify.com/v1/me/playlists?limit=50", $token);
+[$httpCode, $data] = erSpotifyGet("https://api.spotify.com/v1/me/playlists?limit=50", $token);
 if ($httpCode !== 200 || $data === null) {
-  respond("ERROR", [], "Spotify playlist request failed (HTTP {$httpCode})");
+  erRespond("ERROR", [], "Spotify playlist request failed (HTTP {$httpCode})");
 }
 
 $results = [];
@@ -85,7 +85,7 @@ foreach (($data["items"] ?? []) as $pl) {
 $searchMessage = "";
 if ($query !== "") {
   $searchUrl = "https://api.spotify.com/v1/search?type=playlist&limit=10&q=" . urlencode($query);
-  [$searchHttpCode, $searchData] = spotifyGet($searchUrl, $token);
+  [$searchHttpCode, $searchData] = erSpotifyGet($searchUrl, $token);
   if ($searchHttpCode !== 200 || $searchData === null) {
     $searchMessage = "Catalog search failed (HTTP {$searchHttpCode}) - showing your own playlists only.";
   } else {
@@ -105,4 +105,4 @@ if ($query !== "") {
   }
 }
 
-respond("OK", $results, $searchMessage);
+erRespond("OK", $results, $searchMessage);

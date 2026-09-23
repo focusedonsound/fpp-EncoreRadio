@@ -1,7 +1,7 @@
 [
   {
     "name": "Encore Radio - Start",
-    "description": "Start after-hours streaming using the configured source (TuneIn, Pandora, or Spotify).",
+    "description": "Start after-hours streaming using the configured source (Internet Radio, Network Share, TuneIn, Pandora, or Spotify).",
     "script": "er_cmd_start.sh"
   },
   {

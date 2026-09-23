@@ -3,9 +3,19 @@ ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
+// FPP has no login by default, so a state-changing action must never run on
+// a GET - a plain <img>/<iframe> on any page an operator has open would
+// otherwise be enough to trigger it. This save can wipe saved stations,
+// disable Fallback, or start/stop playback, so it's POST-only.
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  http_response_code(405);
+  echo json_encode(["status" => "ERROR", "message" => "POST required"]);
+  exit;
+}
+
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 
-function respond($ok, $msg, $extra = []) {
+function erRespond($ok, $msg, $extra = []) {
   echo json_encode(array_merge([
     "status" => $ok ? "OK" : "ERROR",
     "message" => $msg
@@ -13,7 +23,7 @@ function respond($ok, $msg, $extra = []) {
   exit;
 }
 
-function defaultConfig() {
+function erDefaultConfig() {
   return [
     "source" => "",
     "relay" => ["port" => 8123],
@@ -33,13 +43,13 @@ function defaultConfig() {
 
 $dir = dirname($configFile);
 if (!is_dir($dir)) {
-  respond(false, "Config directory missing: $dir");
+  erRespond(false, "Config directory missing: $dir");
 }
 if (!is_writable($dir)) {
-  respond(false, "Config directory not writable: $dir");
+  erRespond(false, "Config directory not writable: $dir");
 }
 
-$cfg = defaultConfig();
+$cfg = erDefaultConfig();
 if (file_exists($configFile)) {
   $j = json_decode(@file_get_contents($configFile), true);
   if (is_array($j)) $cfg = array_replace_recursive($cfg, $j);
@@ -63,7 +73,7 @@ $premiumUnlocked = (bool)($cfg["license"]["registered"] ?? false) || $cfg["licen
 
 $source = trim((string)($_POST["source"] ?? ""));
 if (!in_array($source, ["", "customstream", "netshare", "tunein", "pandora", "spotify"], true)) {
-  respond(false, "Invalid source: $source");
+  erRespond(false, "Invalid source: $source");
 }
 if (in_array($source, ["pandora", "spotify"], true) && !$premiumUnlocked) {
   // Keep whatever source was already configured - don't let a locked
@@ -78,8 +88,20 @@ if ($volume < 0) $volume = 0;
 if ($volume > 100) $volume = 100;
 $cfg["volume"] = $volume;
 
-$cfg["customstream"]["name"]      = trim((string)($_POST["customstream_name"] ?? $cfg["customstream"]["name"]));
-$cfg["customstream"]["streamUrl"] = trim((string)($_POST["customstream_streamUrl"] ?? $cfg["customstream"]["streamUrl"]));
+// Only http(s) - these values reach `ffmpeg -i` (scripts/backends/
+// customstream_stream.sh), which treats its argument as a protocol
+// specifier, not just a URL; ffmpeg supports plenty of other schemes
+// (file:, concat:, subprocess pipes on some builds) that have no business
+// being reachable from a config field.
+function erIsHttpUrl($url) {
+  return (bool) preg_match('#^https?://#i', $url);
+}
+
+$cfg["customstream"]["name"] = trim((string)($_POST["customstream_name"] ?? $cfg["customstream"]["name"]));
+$postedStreamUrl = trim((string)($_POST["customstream_streamUrl"] ?? $cfg["customstream"]["streamUrl"]));
+if ($postedStreamUrl === "" || erIsHttpUrl($postedStreamUrl)) {
+  $cfg["customstream"]["streamUrl"] = $postedStreamUrl;
+}
 
 // Saved Stations (free) - a little personal library of Internet Radio URLs
 // the operator can flip between without retyping. Built client-side into a
@@ -88,20 +110,34 @@ $cfg["customstream"]["streamUrl"] = trim((string)($_POST["customstream_streamUrl
 // off the five fixed source *types*, never individual URLs) -
 // saving a few stations for yourself is just data entry convenience, not
 // the kind of thing worth gating.
-$customstreamSaved = [];
-$customstreamSavedRaw = json_decode((string)($_POST["customstream_saved_json"] ?? "[]"), true);
-if (is_array($customstreamSavedRaw)) {
-  foreach ($customstreamSavedRaw as $e) {
-    if (!is_array($e)) continue;
-    $url = trim((string)($e["streamUrl"] ?? ""));
-    if ($url === "") continue;
-    $name = trim((string)($e["name"] ?? ""));
-    $customstreamSaved[] = ["name" => ($name !== "" ? $name : $url), "streamUrl" => $url];
+// Only touched when the field is actually present - the UI always submits
+// this hidden field as part of the one full-page form, but a request that
+// omits it entirely (a minimal forged POST, or a future partial-save call)
+// should never silently wipe the saved list to empty.
+if (isset($_POST["customstream_saved_json"])) {
+  $customstreamSaved = [];
+  $customstreamSavedRaw = json_decode((string)$_POST["customstream_saved_json"], true);
+  if (is_array($customstreamSavedRaw)) {
+    foreach ($customstreamSavedRaw as $e) {
+      if (!is_array($e)) continue;
+      $url = trim((string)($e["streamUrl"] ?? ""));
+      if ($url === "" || !erIsHttpUrl($url)) continue;
+      $name = trim((string)($e["name"] ?? ""));
+      $customstreamSaved[] = ["name" => ($name !== "" ? $name : $url), "streamUrl" => $url];
+    }
   }
+  $cfg["customstream"]["saved"] = $customstreamSaved;
 }
-$cfg["customstream"]["saved"] = $customstreamSaved;
 
-$cfg["netshare"]["sharePath"] = trim((string)($_POST["netshare_sharePath"] ?? $cfg["netshare"]["sharePath"]));
+// Reject a sharePath starting with "-": mount(8) parses an argument
+// starting with a dash as an option, not a device, if it ever ends up
+// first on the command line - scripts/backends/netshare_folder.sh already
+// guards this too, but reject it here as well rather than saving a value
+// that can only fail confusingly later.
+$postedSharePath = trim((string)($_POST["netshare_sharePath"] ?? $cfg["netshare"]["sharePath"]));
+if ($postedSharePath === "" || $postedSharePath[0] !== '-') {
+  $cfg["netshare"]["sharePath"] = $postedSharePath;
+}
 $cfg["netshare"]["username"]  = trim((string)($_POST["netshare_username"] ?? $cfg["netshare"]["username"]));
 // Only overwrite the stored password if the field was actually changed -
 // same masked-field convention as pandora_password/spotify_clientSecret.
@@ -109,11 +145,20 @@ $postedSharePassword = (string)($_POST["netshare_password"] ?? "");
 if ($postedSharePassword !== "" && $postedSharePassword !== "__unchanged__") {
   $cfg["netshare"]["password"] = $postedSharePassword;
 }
-$cfg["netshare"]["folder"] = trim((string)($_POST["netshare_folder"] ?? $cfg["netshare"]["folder"]));
+// Reject ".." segments: netshare_folder.sh joins this onto the mountpoint
+// path, and a traversal here would read/stream files from outside the
+// share entirely.
+$postedFolder = trim((string)($_POST["netshare_folder"] ?? $cfg["netshare"]["folder"]));
+if (strpos($postedFolder, '..') === false) {
+  $cfg["netshare"]["folder"] = $postedFolder;
+}
 
 $cfg["tunein"]["stationId"]   = trim((string)($_POST["tunein_stationId"] ?? $cfg["tunein"]["stationId"]));
 $cfg["tunein"]["stationName"] = trim((string)($_POST["tunein_stationName"] ?? $cfg["tunein"]["stationName"]));
-$cfg["tunein"]["streamUrl"]   = trim((string)($_POST["tunein_streamUrl"] ?? $cfg["tunein"]["streamUrl"]));
+$postedTuneinUrl = trim((string)($_POST["tunein_streamUrl"] ?? $cfg["tunein"]["streamUrl"]));
+if ($postedTuneinUrl === "" || erIsHttpUrl($postedTuneinUrl)) {
+  $cfg["tunein"]["streamUrl"] = $postedTuneinUrl;
+}
 
 if ($premiumUnlocked) {
   $cfg["pandora"]["username"]    = trim((string)($_POST["pandora_username"] ?? $cfg["pandora"]["username"]));
@@ -151,23 +196,25 @@ if ($premiumUnlocked) {
   // onto plain form fields) and posted as one hidden field.
   $cfg["rotation"]["enabled"] = isset($_POST["rotation_enabled"]) && $_POST["rotation_enabled"] === "1";
   $validDays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-  $rotationEntries = [];
-  $rotationRaw = json_decode((string)($_POST["rotation_entries_json"] ?? "[]"), true);
-  if (is_array($rotationRaw)) {
-    foreach ($rotationRaw as $e) {
-      if (!is_array($e)) continue;
-      $source = (string)($e["source"] ?? "");
-      $start = (string)($e["startTime"] ?? "");
-      $end = (string)($e["endTime"] ?? "");
-      $days = array_values(array_intersect((array)($e["days"] ?? []), $validDays));
-      if (!in_array($source, $validSources, true)) continue;
-      if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $start)) continue;
-      if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $end)) continue;
-      if (empty($days)) continue;
-      $rotationEntries[] = ["days" => $days, "startTime" => $start, "endTime" => $end, "source" => $source];
+  if (isset($_POST["rotation_entries_json"])) {
+    $rotationEntries = [];
+    $rotationRaw = json_decode((string)$_POST["rotation_entries_json"], true);
+    if (is_array($rotationRaw)) {
+      foreach ($rotationRaw as $e) {
+        if (!is_array($e)) continue;
+        $source = (string)($e["source"] ?? "");
+        $start = (string)($e["startTime"] ?? "");
+        $end = (string)($e["endTime"] ?? "");
+        $days = array_values(array_intersect((array)($e["days"] ?? []), $validDays));
+        if (!in_array($source, $validSources, true)) continue;
+        if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $start)) continue;
+        if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $end)) continue;
+        if (empty($days)) continue;
+        $rotationEntries[] = ["days" => $days, "startTime" => $start, "endTime" => $end, "source" => $source];
+      }
     }
+    $cfg["rotation"]["entries"] = $rotationEntries;
   }
-  $cfg["rotation"]["entries"] = $rotationEntries;
 }
 // else: leave $cfg["rotation"] exactly as loaded - Rotation is premium.
 
@@ -176,18 +223,32 @@ if ($premiumUnlocked) {
 // ordered priority dropdowns rather than a drag-and-drop list, simplest
 // reliable UI for a handful of fixed options.
 $cfg["fallback"]["enabled"] = isset($_POST["fallback_enabled"]) && $_POST["fallback_enabled"] === "1";
-$fallbackChain = [];
-for ($i = 1; $i <= 5; $i++) {
-  $pick = trim((string)($_POST["fallback_priority_{$i}"] ?? ""));
-  if ($pick === "" || !in_array($pick, $validSources, true)) continue;
-  if (in_array($pick, $fallbackChain, true)) continue; // no duplicates
-  $fallbackChain[] = $pick;
+// Gated on the first dropdown's presence, not the checkbox - all 5 are
+// always rendered together, so this tells a genuine full-form submission
+// apart from a request that just omits this section (which should leave
+// the existing chain alone, not silently clear it to empty).
+if (isset($_POST["fallback_priority_1"])) {
+  $fallbackChain = [];
+  for ($i = 1; $i <= 5; $i++) {
+    $pick = trim((string)($_POST["fallback_priority_{$i}"] ?? ""));
+    if ($pick === "" || !in_array($pick, $validSources, true)) continue;
+    if (in_array($pick, $fallbackChain, true)) continue; // no duplicates
+    $fallbackChain[] = $pick;
+  }
+  $cfg["fallback"]["chain"] = $fallbackChain;
 }
-$cfg["fallback"]["chain"] = $fallbackChain;
 
 // Announcement Assistant scheduling (M2)
 $cfg["announce"]["enabled"] = isset($_POST["announce_enabled"]) && $_POST["announce_enabled"] === "1";
-$cfg["announce"]["slot"] = trim((string)($_POST["announce_slot"] ?? $cfg["announce"]["slot"]));
+// slot is an AA slot index (see loadAASlots() in index.php) - digits only.
+// It ends up in a JSON body er_announce_scheduler.sh POSTs to FPP's own
+// /api/command as root; that call is now built with jq --arg rather than
+// string interpolation regardless, but there's no reason to accept or
+// store anything other than a plain index here either.
+$postedSlot = trim((string)($_POST["announce_slot"] ?? $cfg["announce"]["slot"]));
+if ($postedSlot === "" || ctype_digit($postedSlot)) {
+  $cfg["announce"]["slot"] = $postedSlot;
+}
 
 $mode = trim((string)($_POST["announce_mode"] ?? $cfg["announce"]["mode"]));
 if (!in_array($mode, ["cadence", "times"], true)) $mode = "cadence";
@@ -199,25 +260,27 @@ $cfg["announce"]["cadenceMinutes"] = $cadence;
 
 // Times come from a textarea, one HH:MM per line (or comma-separated) -
 // simplest input the owner can type freely rather than a multi-row picker.
-$timesRaw = (string)($_POST["announce_times"] ?? "");
-$times = [];
-foreach (preg_split('/[\s,]+/', $timesRaw) as $t) {
-  $t = trim($t);
-  if ($t !== "" && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t)) {
-    $times[] = $t;
+if (isset($_POST["announce_times"])) {
+  $timesRaw = (string)$_POST["announce_times"];
+  $times = [];
+  foreach (preg_split('/[\s,]+/', $timesRaw) as $t) {
+    $t = trim($t);
+    if ($t !== "" && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $t)) {
+      $times[] = $t;
+    }
   }
+  $cfg["announce"]["times"] = array_values(array_unique($times));
 }
-$cfg["announce"]["times"] = array_values(array_unique($times));
 
 // Atomic write
 $tmp = $configFile . ".tmp";
 $data = json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
 if (@file_put_contents($tmp, $data) === false) {
-  respond(false, "Failed to write temp config: $tmp");
+  erRespond(false, "Failed to write temp config: $tmp");
 }
 if (!@rename($tmp, $configFile)) {
   @unlink($tmp);
-  respond(false, "Failed to replace config file: $configFile");
+  erRespond(false, "Failed to replace config file: $configFile");
 }
 @chmod($configFile, 0600);
 
@@ -236,4 +299,4 @@ curl_setopt_array($ch, [
 @curl_exec($ch);
 curl_close($ch);
 
-respond(true, "Saved.");
+erRespond(true, "Saved.");

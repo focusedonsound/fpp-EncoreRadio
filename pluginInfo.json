@@ -105,13 +105,13 @@
       { "kind": "service", "what": "Creates encoreradio-pulse.service (system PulseAudio); overwrites /etc/pulse/system.pa, pins fpp's Pulse clients to it." },
       { "kind": "service", "what": "Enables Raspotify (Spotify Connect) once Spotify is configured; not started otherwise." },
       { "kind": "privilege", "what": "Adds the pulse and fpp users to the audio group." },
-      { "kind": "download", "what": "Downloads/installs the Raspotify .deb, checksum-verified via api.github.com." },
+      { "kind": "download", "what": "Downloads/installs the Raspotify .deb from dtcooper.github.io, checksum-verified via api.github.com when available." },
       { "kind": "core-settings", "what": "Edits /etc/raspotify/conf (audio backend, device name) when Raspotify is installed." },
       { "kind": "network", "what": "Mounts an operator-specified network share on demand, outside media/, unmounted when playback stops." },
-      { "kind": "network", "what": "The audio relay binds 0.0.0.0:8123 (configurable) while a source is playing." }
+      { "kind": "network", "what": "The audio relay listens on 127.0.0.1:8123 (loopback only) while a source is playing." }
     ],
     "closedCode": false,
-    "other": "Pandora, Spotify, and Source Rotation are locked in the UI (and rejected server-side, not just cosmetically) until you register an email or already have a license key entered; Source Fallback, Custom Internet Radio, Network Share, TuneIn, and Announcement Assistant scheduling are never gated on anything. The PulseAudio system.pa rewrite also points every PulseAudio client running as the fpp user - including FPP's own audio output, not just this plugin's - at the shared instance; it's backed up before being overwritten and restored on uninstall, but only when this plugin was the one that created it (not when another plugin, e.g. Announcement Assistant, got there first - uninstalling never touches a shared setup it doesn't own). The license server's email flow (only if you save an email) sends nothing but that address, and stops automatically once you have a license key: a welcome message on signup, then reminders at day 3/7/14 if you're still unlicensed. During Spotify setup, the license server also relays the OAuth authorization code and this device's local callback URL back to it, since Spotify requires an https redirect URI and this device's LAN address can't be one - the token exchange itself still happens locally. Custom Internet Radio, TuneIn, and Network Share sources send requests only to the stream URL, station, or NAS you configure. Uninstalling does not remove plugindata/fpp-EncoreRadio/ (encoreradio.json, trial_state.json) or the plugin's state directory: registration status, license data, trial-hour progress, and any saved Pandora/Spotify/network-share credentials remain on disk until deleted by hand. It also does not remove the raspotify package or /etc/raspotify/conf, so a reinstall doesn't need to re-download it."
+    "other": "Pandora, Spotify, and Source Rotation are locked in the UI (and rejected server-side, not just cosmetically) until you register an email or already have a license key entered; Source Fallback, Custom Internet Radio, Network Share, TuneIn, and Announcement Assistant scheduling are never gated on anything. The PulseAudio system.pa rewrite also points every PulseAudio client running as the fpp user - including FPP's own audio output, not just this plugin's - at the shared instance; it's backed up before being overwritten and restored on uninstall, but only when this plugin was the one that created it (not when another plugin, e.g. Announcement Assistant, got there first - uninstalling never touches a shared setup it doesn't own). The license server's email flow (only if you save an email) sends nothing but that address, and stops automatically once you have a license key: a welcome message on signup, then reminders at day 3/7/14 if you're still unlicensed. During Spotify setup, the license server also relays the OAuth authorization code and this device's local callback URL back to it, since Spotify requires an https redirect URI and this device's LAN address can't be one - the token exchange itself still happens locally. Custom Internet Radio, TuneIn, and Network Share sources send requests only to the stream URL, station, or NAS you configure. Uninstalling does not remove plugindata/fpp-EncoreRadio/ (encoreradio.json, trial_state.json) or the plugin's state directory: registration status, license data, trial-hour progress, and any saved Pandora/Spotify/network-share credentials remain on disk until deleted by hand. It also does not remove the raspotify package or /etc/raspotify/conf, so a reinstall doesn't need to re-download it. The pulse/fpp audio-group membership is likewise never reverted - there's no reliable way to tell whether either user was already a member before this plugin ran usermod, so removing it on uninstall risks taking away access something else on the box depends on."
   },
   "versions": [
     {
@@ -120,7 +120,7 @@
       "branch": "master",
       "sha": "",
       "dependencies": {
-        "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "cifs-utils"]
+        "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "cifs-utils", "pulseaudio", "pulseaudio-utils", "libasound2-plugins"]
       }
     },
     {
@@ -129,7 +129,7 @@
       "branch": "master",
       "sha": "",
       "dependencies": {
-        "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "cifs-utils"]
+        "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "cifs-utils", "pulseaudio", "pulseaudio-utils", "libasound2-plugins"]
       }
     }
   ]

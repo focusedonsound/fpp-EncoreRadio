@@ -51,8 +51,30 @@ USERNAME="$(cfg username)"
 PASSWORD="$(cfg password)"
 FOLDER="$(cfg folder)"
 
+# Strips CR/LF so username/password can never inject a second directive
+# into the credentials file mount(8) parses below - same reasoning as
+# pandora_pianobar.sh's strip_crlf for pianobar's config.
+strip_crlf() { printf '%s' "${1//$'\r'/}" | tr -d '\n'; }
+USERNAME="$(strip_crlf "$USERNAME")"
+PASSWORD="$(strip_crlf "$PASSWORD")"
+
 if [[ -z "$SHARE_PATH" ]]; then
     log "ERROR: no share path configured (netshare.sharePath is empty)"
+    exit 1
+fi
+
+# A value starting with "-" would be parsed by mount(8) as an option, not
+# a device, if it ever ended up first on the command line - www/save.php
+# already rejects this at save time, but don't trust that alone.
+if [[ "$SHARE_PATH" == -* ]]; then
+    log "ERROR: invalid share path (starts with '-'): ${SHARE_PATH}"
+    exit 1
+fi
+
+# Reject ".." so FOLDER can't escape the mountpoint once joined onto it
+# below - same reasoning as the save-time check in www/save.php.
+if [[ "$FOLDER" == *..* ]]; then
+    log "ERROR: invalid folder (contains '..'): ${FOLDER}"
     exit 1
 fi
 
@@ -99,9 +121,15 @@ fi
 
 log "Mounting ${SHARE_PATH} (user=${USERNAME:-guest})"
 if ! mount -t cifs "$SHARE_PATH" "$MOUNT_POINT" -o "$MOUNT_OPTS" 2>>"$LOG_FILE"; then
+    rm -f "$CREDS_FILE"
     log "ERROR: failed to mount ${SHARE_PATH} - check share path/credentials, and that the share is reachable from this device"
     exit 1
 fi
+
+# The kernel already has the credentials it needs for this mount's
+# lifetime; nothing else reads this file once mount(8) has returned, so
+# don't leave it sitting on disk until the next mount attempt.
+rm -f "$CREDS_FILE"
 
 SEARCH_DIR="$MOUNT_POINT"
 if [[ -n "$FOLDER" ]]; then
@@ -142,13 +170,20 @@ fi
 # for this format) - filenames from a real music library routinely contain
 # apostrophes (e.g. "Ain't").
 REPEAT_COUNT=200
-: > "$PLAYLIST_FILE"
-for ((rep = 0; rep < REPEAT_COUNT; rep++)); do
-    while IFS= read -r -d '' f; do
-        escaped="${f//\'/\'\\\'\'}"
-        echo "file '${escaped}'" >> "$PLAYLIST_FILE"
-    done < <(printf '%s\0' "${FILES[@]}" | shuf -z)
-done
+# Single redirect around the whole loop, not `>>` on each line: reopening
+# the file per line, times FILE_COUNT * REPEAT_COUNT, turns a large
+# library (thousands of tracks) into hundreds of thousands of individual
+# append-opens - this runs inside a blocking FPP Command (er_cmd_start.sh),
+# so that cost lands on fppd's command thread and whoever's waiting on
+# Start/Stop, not just this script.
+{
+    for ((rep = 0; rep < REPEAT_COUNT; rep++)); do
+        while IFS= read -r -d '' f; do
+            escaped="${f//\'/\'\\\'\'}"
+            echo "file '${escaped}'"
+        done < <(printf '%s\0' "${FILES[@]}" | shuf -z)
+    done
+} > "$PLAYLIST_FILE"
 
 log "Found ${FILE_COUNT} audio files - starting relay"
 "${HERE}/er_relay.sh" start playlist "$PLAYLIST_FILE"

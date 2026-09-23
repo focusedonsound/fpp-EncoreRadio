@@ -15,7 +15,7 @@ define("ER_SPOTIFY_FIXED_REDIRECT_URI", "https://encoreradio-license.nscilingo.w
 
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 
-function renderResult(bool $ok, string $message): void {
+function erRenderResult(bool $ok, string $message): void {
   $color = $ok ? "#2a7" : "#c33";
   echo "<h2 style='color:{$color}'>" . ($ok ? "Spotify connected!" : "Spotify connection failed") . "</h2>";
   echo "<p>" . htmlspecialchars($message) . "</p>";
@@ -30,10 +30,10 @@ $code = $_GET["code"] ?? null;
 $error = $_GET["error"] ?? null;
 
 if ($error) {
-  renderResult(false, "Spotify returned an error: {$error}");
+  erRenderResult(false, "Spotify returned an error: {$error}");
 }
 if (!$code || !$nonce || $nonce !== $expectedNonce) {
-  renderResult(false, "Invalid or missing OAuth state - please try connecting again.");
+  erRenderResult(false, "Invalid or missing OAuth state - please try connecting again.");
 }
 unset($_SESSION["encoreradio_spotify_state"]);
 
@@ -45,7 +45,7 @@ if (file_exists($configFile)) {
 $clientId = trim((string)($cfg["spotify"]["clientId"] ?? ""));
 $clientSecret = trim((string)($cfg["spotify"]["clientSecret"] ?? ""));
 if ($clientId === "" || $clientSecret === "") {
-  renderResult(false, "Spotify Client ID/Secret missing from config - save them on the Encore Radio page first.");
+  erRenderResult(false, "Spotify Client ID/Secret missing from config - save them on the Encore Radio page first.");
 }
 
 $ch = curl_init("https://accounts.spotify.com/api/token");
@@ -66,7 +66,7 @@ curl_close($ch);
 
 $data = json_decode((string)$response, true);
 if ($httpCode !== 200 || !is_array($data) || empty($data["access_token"])) {
-  renderResult(false, "Token exchange failed: " . (is_array($data) ? ($data["error_description"] ?? $response) : $response));
+  erRenderResult(false, "Token exchange failed: " . (is_array($data) ? ($data["error_description"] ?? $response) : $response));
 }
 
 $cfg["spotify"]["accessToken"] = $data["access_token"];
@@ -76,8 +76,8 @@ $cfg["spotify"]["tokenExpiresAt"] = time() + (int)($data["expires_in"] ?? 3600);
 $tmp = $configFile . ".tmp";
 if (@file_put_contents($tmp, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n") === false
     || !@rename($tmp, $configFile)) {
-  renderResult(false, "Got tokens from Spotify but failed to save them to config.");
+  erRenderResult(false, "Got tokens from Spotify but failed to save them to config.");
 }
 @chmod($configFile, 0600);
 
-renderResult(true, "Your Spotify account is now connected. You can search and pick a playlist on the Encore Radio page. Don't forget the separate one-time step of pairing the Raspotify Connect device via your phone's Spotify app if you haven't already.");
+erRenderResult(true, "Your Spotify account is now connected. You can search and pick a playlist on the Encore Radio page. Don't forget the separate one-time step of pairing the Raspotify Connect device via your phone's Spotify app if you haven't already.");

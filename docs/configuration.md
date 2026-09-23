@@ -1,8 +1,10 @@
 # Configuration Reference
 
-All settings live in `/home/fpp/media/config/encoreradio.json`, edited
-through the Encore Radio plugin page (not by hand, though it's plain JSON
-if you ever need to inspect it).
+All settings live in `/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json`,
+edited through the Encore Radio plugin page (not by hand, though it's
+plain JSON if you ever need to inspect it). Trial-hour tracking lives
+separately, in `trial_state.json` in the same directory - see the
+`license.trialSecondsUsed` row below.
 
 | Key | Description |
 |---|---|
@@ -16,7 +18,7 @@ if you ever need to inspect it).
 | `netshare.folder` | Subfolder within the share to play (blank = share root, searched recursively) |
 | `rotation.enabled` | Premium - play a different source on a day/time schedule instead of always `source` |
 | `rotation.entries` | Array of `{days: [...], startTime, endTime, source}` - `days` are lowercase 3-letter (`mon`..`sun`); `endTime <= startTime` wraps past midnight |
-| `fallback.enabled` | Premium - auto-recover to the next source if the current one fails to start or dies mid-play |
+| `fallback.enabled` | Free - auto-recover to the next source if the current one fails to start or dies mid-play |
 | `fallback.chain` | Ordered array of source names to try in sequence, e.g. `["spotify", "pandora", "tunein", "netshare"]` |
 | `tunein.stationId` / `stationName` / `streamUrl` | Set by the station search picker |
 | `pandora.username` / `password` / `stationId` / `stationName` | Pandora account + chosen station |
@@ -29,7 +31,7 @@ if you ever need to inspect it).
 | `announce.mode` | `cadence` (every N minutes) or `times` (specific HH:MM times) |
 | `announce.cadenceMinutes` / `times` | The schedule itself |
 | `license.email` / `key` | Set via the License section |
-| `license.trialSecondsUsed` | Cumulative Spotify playback time - only ever written by `er_track_usage.sh` |
+| `trial_state.json`: `trialSecondsUsed` | Separate file, same directory - cumulative Pandora **and** Spotify playback time counted against the 10-hour trial (TuneIn never counts), only ever written by `er_track_usage.sh` |
 | `ui.onboardingSeen` / `onboardingTourEnabled` | First-run guided tour state |
 
 ## FPP Commands

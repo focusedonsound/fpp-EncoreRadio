@@ -3,6 +3,16 @@ declare(strict_types=1);
 
 header('Content-Type: application/json');
 
+// FPP has no login by default; a state-changing action must never run on a
+// GET, or a plain <img>/<iframe> on any page an operator has open could
+// start playback (which, as root, mounts a configured network share and
+// spawns ffmpeg/pianobar) without any interaction at all.
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['ok' => false, 'error' => 'POST required']);
+    exit;
+}
+
 // Dispatches through FPP's own command API (POST /api/command/{name},
 // executed by fppd itself, which already runs as root) rather than
 // exec()'ing the script directly from this PHP-FPM process, which runs

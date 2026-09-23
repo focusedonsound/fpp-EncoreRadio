@@ -92,7 +92,7 @@ do_start() {
     nohup ffmpeg -hide_banner -loglevel warning \
         "${input_args[@]}" \
         -vn -acodec libmp3lame -b:a 128k -content_type audio/mpeg \
-        -f mp3 -listen 1 "http://0.0.0.0:${port}/stream" \
+        -f mp3 -listen 1 "http://127.0.0.1:${port}/stream" \
         >> "$LOG_FILE" 2>&1 &
     local relay_pid=$!
 

@@ -49,19 +49,29 @@ except: print(0)
 validate_license_key() {
     local hwid
     hwid="$(bash "${HERE}/er_hwid.sh" 2>/dev/null)"
+
+    # mktemp, not a fixed name: this runs as root, and a fixed world-
+    # writable /tmp path could be pre-planted as a symlink by any local
+    # user to have curl -o write/truncate an arbitrary file.
+    local resp_file
+    resp_file="$(mktemp /tmp/encoreradio_validate.XXXXXX)" || return 1
+    # trap ensures this is removed even on an early return (grace-period
+    # allow below), not just the success path.
+    trap 'rm -f "$resp_file"' RETURN
+
     # No "|| echo 000" fallback: curl's -w already prints "000" on its own
     # for a connection failure - the fallback double-fired on top of it,
     # confirmed on real hardware (see er_announce_scheduler.sh for the
     # same fix and fuller explanation).
     local http_code
-    http_code="$(curl -s -m 8 -o /tmp/encoreradio_license_validate.json -w '%{http_code}' \
+    http_code="$(curl -s -m 8 -o "$resp_file" -w '%{http_code}' \
         -X POST "${LICENSE_SERVER_BASE}/validate" \
         -H "Content-Type: application/json" \
         -d "{\"key\":\"${LICENSE_KEY}\",\"hwid\":\"${hwid}\"}" 2>/dev/null)"
 
     if [[ "$http_code" == "200" ]]; then
         local valid
-        valid="$(python3 -c "import json; print(json.load(open('/tmp/encoreradio_license_validate.json')).get('valid', False))" 2>/dev/null)"
+        valid="$(python3 -c "import json; print(json.load(open('$resp_file')).get('valid', False))" 2>/dev/null)"
         if [[ "$valid" == "True" ]]; then
             log "License validated OK"
             return 0
@@ -70,7 +80,7 @@ validate_license_key() {
             return 2
         fi
     elif [[ "$http_code" == "000" ]]; then
-        log "WARNING: license server unreachable (placeholder endpoint, or network issue) - grace-period allow"
+        log "WARNING: license server unreachable (network issue) - grace-period allow"
         return 0
     else
         log "License server returned HTTP $http_code - grace-period allow"

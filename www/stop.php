@@ -4,7 +4,13 @@ declare(strict_types=1);
 header('Content-Type: application/json');
 
 // See start.php for why this dispatches through FPP's own command API
-// instead of exec()'ing the script directly.
+// instead of exec()'ing the script directly, and for why this must be
+// POST-only.
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    echo json_encode(['ok' => false, 'error' => 'POST required']);
+    exit;
+}
 $ch = curl_init('http://localhost/api/command/' . rawurlencode('Encore Radio - Stop'));
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,

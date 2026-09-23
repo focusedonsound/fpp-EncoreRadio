@@ -38,6 +38,13 @@ case "${1:-}" in
         NOW="$(date +%s)"
         ELAPSED=$((NOW - START))
         [[ "$ELAPSED" -lt 0 ]] && ELAPSED=0
+        # Capped at a generous single-session ceiling: SESSION_FILE persists
+        # across an unclean shutdown/reboot, so without this an outage
+        # spanning hours/days between start and the next finalize would
+        # charge that entire downtime against the 10-hour trial rather than
+        # just actual playback time.
+        MAX_SESSION_SECONDS=$((14 * 3600))
+        [[ "$ELAPSED" -gt "$MAX_SESSION_SECONDS" ]] && ELAPSED=$MAX_SESSION_SECONDS
 
         NEW_TOTAL="$(python3 -c "
 import json

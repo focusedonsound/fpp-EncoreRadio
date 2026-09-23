@@ -8,10 +8,15 @@ Every source converges on PulseAudio:
   types in directly, re-streamed through the same local relay as TuneIn.
 - **Network Share**: mounts an existing SMB/CIFS share (`mount.cifs`),
   shuffles the audio files found in the chosen folder into an ffmpeg
-  concat playlist, and hands that to the local relay too - `-stream_loop
-  -1` makes it loop forever, so it behaves like a continuous station the
-  same way a network stream does. Nothing is copied onto the device, so
-  the library can be far larger than local storage would allow.
+  concat playlist, and hands that to the local relay too. No
+  `-stream_loop` - confirmed on real hardware that ffmpeg's `-stream_loop`
+  doesn't reliably loop the concat demuxer back to the start (it plays
+  through once, then exits trying to restart rather than actually
+  looping) - so `netshare_folder.sh` writes the shuffled file list into
+  the concat playlist many times over instead, which gets the same
+  "behaves like a continuous station" result without it. Nothing is
+  copied onto the device, so the library can be far larger than local
+  storage would allow.
 - **TuneIn**: a direct station stream URL, re-streamed through a local
   `ffmpeg` relay (`scripts/er_relay.sh`) so playback always points at a
   stable local URL regardless of the upstream stream's own reliability.
@@ -102,12 +107,16 @@ this, the announcement would have played over the stream at full volume).
 
 ## Free vs. premium
 
-A custom stream URL, a network share, TuneIn, a single source, and basic
-announcement scheduling are always free, no registration. Pandora and Spotify (custom playlists) get a
-10-cumulative-hour trial, then require registering an email and entering
-a license key - see `docs/configuration.md`.
+A custom stream URL, a network share, TuneIn, Source Fallback, and basic
+announcement scheduling are always free, no registration. Pandora,
+Spotify, and Source Rotation require registering an email or entering a
+license key first (see `www/save.php`'s `$premiumUnlocked`) - once
+unlocked, Pandora/Spotify additionally get a 10-cumulative-hour trial
+before a license key is actually required to keep using them.
 
 ## License gating
 
-Premium features check for a valid trial or license before starting.
-See `docs/configuration.md` for the relevant config fields.
+Registration-or-key unlocks the premium UI/config; separately,
+Pandora/Spotify playback itself checks for a valid trial or license
+before starting (`scripts/er_premium_gate.sh`), off a purely local
+counter. See `docs/configuration.md` for the relevant config fields.

@@ -121,6 +121,7 @@ with open(tmp, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
 os.replace(tmp, '$CFG_FILE')
+os.chmod('$CFG_FILE', 0o600)
 " 2>/dev/null
 }
 

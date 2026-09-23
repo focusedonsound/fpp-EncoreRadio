@@ -1,7 +1,7 @@
 <?php
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 
-function loadConfig($path) {
+function erLoadConfig($path) {
   $cfg = [
     "source" => "",
     "relay" => ["port" => 8123],
@@ -26,7 +26,7 @@ function loadConfig($path) {
 
 // Trial-hour tracking lives in its own file, separate from settings - see
 // scripts/er_premium_gate.sh / er_track_usage.sh.
-function loadTrialSecondsUsed($path) {
+function erLoadTrialSecondsUsed($path) {
   if (file_exists($path)) {
     $j = json_decode(@file_get_contents($path), true);
     if (is_array($j)) return (int)($j["trialSecondsUsed"] ?? 0);
@@ -34,7 +34,7 @@ function loadTrialSecondsUsed($path) {
   return 0;
 }
 
-function loadAASlots() {
+function erLoadAASlots() {
   $path = "/home/fpp/media/config/announcementassistant.json";
   $slots = [];
   if (file_exists($path)) {
@@ -49,8 +49,8 @@ function loadAASlots() {
   return $slots;
 }
 
-$cfg = loadConfig($configFile);
-$aaSlots = loadAASlots();
+$cfg = erLoadConfig($configFile);
+$aaSlots = erLoadAASlots();
 $aaInstalled = file_exists("/home/fpp/media/config/announcementassistant.json");
 $spotifyConnected = trim((string)$cfg["spotify"]["refreshToken"]) !== "";
 $raspotifyInstalled = file_exists("/usr/bin/librespot");
@@ -63,7 +63,7 @@ $hasLicenseKey = trim((string)$cfg["license"]["key"]) !== "";
 // sources (customstream/netshare/TuneIn) are never
 // gated at all. Enforced again server-side in save.php, not just here.
 $premiumUnlocked = $registered || $hasLicenseKey;
-$trialSecondsUsed = loadTrialSecondsUsed("/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json");
+$trialSecondsUsed = erLoadTrialSecondsUsed("/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json");
 $trialSecondsRemaining = max(0, (10 * 3600) - $trialSecondsUsed);
 $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 ?>
@@ -840,7 +840,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   }
 
   // --- Source Rotation (premium) --------------------------------------
-  var erRotationEntries = <?php echo json_encode($cfg["rotation"]["entries"]); ?>;
+  var erRotationEntries = <?php echo json_encode($cfg["rotation"]["entries"], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
   var ER_ROTATION_DAYS = [
     ['mon', 'M'], ['tue', 'T'], ['wed', 'W'], ['thu', 'T'], ['fri', 'F'], ['sat', 'S'], ['sun', 'S']
   ];
@@ -942,7 +942,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   // it as normal, same as if it had been typed in by hand. This same list
   // also doubles as the automatic failover chain (see
   // scripts/er_customstream_watchdog.sh) - no separate config needed.
-  var erCustomstreamSaved = <?php echo json_encode($cfg["customstream"]["saved"]); ?>;
+  var erCustomstreamSaved = <?php echo json_encode($cfg["customstream"]["saved"], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
   function erRenderCustomstreamSaved() {
     var container = document.getElementById('er-customstream-saved-rows');
@@ -1151,7 +1151,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       return;
     }
     erSetStatus("Starting - this can take a few seconds...");
-    const res = await fetch(erUrl('start.php'), { cache: 'no-store' });
+    const res = await fetch(erUrl('start.php'), { method: 'POST', cache: 'no-store' });
     const j = await erReadJson(res);
     if (!j.ok) {
       erSetStatus("Error: " + (j.error || "could not dispatch Start"));
@@ -1168,7 +1168,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 
   async function erStop() {
     erSetStatus("Stopping...");
-    const res = await fetch(erUrl('stop.php'), { cache: 'no-store' });
+    const res = await fetch(erUrl('stop.php'), { method: 'POST', cache: 'no-store' });
     const j = await erReadJson(res);
     if (!j.ok) {
       erSetStatus("Error: " + (j.error || "could not dispatch Stop"));

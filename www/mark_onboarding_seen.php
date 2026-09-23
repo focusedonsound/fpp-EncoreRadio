@@ -4,6 +4,12 @@ ini_set('display_errors', '0');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  http_response_code(405);
+  echo json_encode(["status" => "ERROR", "message" => "POST required"]);
+  exit;
+}
+
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 
 $cfg = [];

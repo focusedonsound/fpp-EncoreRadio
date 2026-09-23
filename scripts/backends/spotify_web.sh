@@ -70,13 +70,16 @@ fi
 
 # Find our Raspotify device's current device_id - it changes across
 # restarts/pairings, so this is always looked up fresh rather than cached.
+# DEVICE_NAME passed via the environment, not spliced into the source
+# string, since it's read back from config rather than a fixed literal.
 DEVICE_ID="$(curl -s -m 10 "https://api.spotify.com/v1/me/player/devices" \
-    -H "Authorization: Bearer ${TOKEN}" | python3 -c "
-import json, sys
+    -H "Authorization: Bearer ${TOKEN}" | DEVICE_NAME="$DEVICE_NAME" python3 -c "
+import json, sys, os
 try:
     devices = json.load(sys.stdin).get('devices', [])
+    target = os.environ['DEVICE_NAME']
     for d in devices:
-        if d.get('name') == '$DEVICE_NAME':
+        if d.get('name') == target:
             print(d['id'])
             break
 except Exception:
@@ -89,16 +92,22 @@ if [[ -z "$DEVICE_ID" ]]; then
 fi
 
 log "Playing $PLAYLIST_URI on device '$DEVICE_NAME' (id=$DEVICE_ID)"
-HTTP_CODE="$(curl -s -o /tmp/encoreradio_spotify_play.json -w '%{http_code}' -m 10 \
+# mktemp, not a fixed name - this runs as root, and a fixed world-writable
+# /tmp path could be pre-planted as a symlink by any local user to have
+# curl -o write/truncate an arbitrary file.
+PLAY_RESP_FILE="$(mktemp /tmp/encoreradio_spotify_play.XXXXXX)"
+HTTP_CODE="$(curl -s -o "$PLAY_RESP_FILE" -w '%{http_code}' -m 10 \
     -X PUT "https://api.spotify.com/v1/me/player/play?device_id=${DEVICE_ID}" \
     -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json" \
     -d "{\"context_uri\":\"${PLAYLIST_URI}\"}")"
 
 if [[ "$HTTP_CODE" != "204" && "$HTTP_CODE" != "200" ]]; then
-    log "ERROR: Spotify play request failed (HTTP $HTTP_CODE): $(cat /tmp/encoreradio_spotify_play.json 2>/dev/null)"
+    log "ERROR: Spotify play request failed (HTTP $HTTP_CODE): $(cat "$PLAY_RESP_FILE" 2>/dev/null)"
+    rm -f "$PLAY_RESP_FILE"
     exit 1
 fi
+rm -f "$PLAY_RESP_FILE"
 
 log "Playback started"
 bash "${HERE}/er_track_usage.sh" start

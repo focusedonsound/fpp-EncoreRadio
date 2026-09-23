@@ -21,17 +21,28 @@ if ($body === false) {
   exit;
 }
 
+// Shorter timeout than the search request above, and a hard cap on how
+// many items get checked at all (below) - each item costs its own
+// blocking Tune.ashx round-trip, and TuneIn can return far more "audio"
+// items than ever resolve a stream URL. Without both caps, one search can
+// occupy a PHP-FPM worker for minutes.
+$tuneCtx = stream_context_create(["http" => ["timeout" => 2]]);
+
 $json = json_decode($body, true);
 $results = [];
+$MAX_ITEMS_CHECKED = 25;
+$itemsChecked = 0;
 if (is_array($json) && isset($json['body']) && is_array($json['body'])) {
   foreach ($json['body'] as $item) {
     if (($item['type'] ?? '') !== 'audio') continue;
+    if ($itemsChecked >= $MAX_ITEMS_CHECKED) break;
+    $itemsChecked++;
     $guideId = $item['guide_id'] ?? '';
     if ($guideId === '') continue;
 
     // Resolve the actual stream URL via TuneIn's Tune.ashx for this station id.
     $tuneUrl = "https://opml.radiotime.com/Tune.ashx?id=" . urlencode($guideId) . "&render=json";
-    $tuneBody = @file_get_contents($tuneUrl, false, $ctx);
+    $tuneBody = @file_get_contents($tuneUrl, false, $tuneCtx);
     $streamUrl = "";
     if ($tuneBody !== false) {
       $tuneJson = json_decode($tuneBody, true);

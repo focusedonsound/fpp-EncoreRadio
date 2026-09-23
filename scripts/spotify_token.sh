@@ -56,18 +56,22 @@ if [[ -z "$NEW_ACCESS" ]]; then
     exit 1
 fi
 
-python3 -c "
-import json
+# Passed via the environment, not spliced into the source string below -
+# NEW_ACCESS/NEW_REFRESH come straight from Spotify's token-endpoint
+# response body, so a stray quote in either would otherwise land as
+# arbitrary Python source in a script that runs as root.
+NEW_ACCESS="$NEW_ACCESS" NEW_REFRESH="$NEW_REFRESH" NEW_EXPIRES_AT="$((NOW + EXPIRES_IN))" python3 -c "
+import json, os
 cfg = json.load(open('$CFG_FILE'))
 cfg.setdefault('spotify', {})
-cfg['spotify']['accessToken'] = '$NEW_ACCESS'
-cfg['spotify']['tokenExpiresAt'] = $NOW + $EXPIRES_IN
-if '$NEW_REFRESH':
-    cfg['spotify']['refreshToken'] = '$NEW_REFRESH'
+cfg['spotify']['accessToken'] = os.environ['NEW_ACCESS']
+cfg['spotify']['tokenExpiresAt'] = int(os.environ['NEW_EXPIRES_AT'])
+if os.environ.get('NEW_REFRESH'):
+    cfg['spotify']['refreshToken'] = os.environ['NEW_REFRESH']
 tmp = '$CFG_FILE.tmp'
 json.dump(cfg, open(tmp, 'w'), indent=2)
-import os
 os.replace(tmp, '$CFG_FILE')
+os.chmod('$CFG_FILE', 0o600)
 " 2>/dev/null || log "WARNING: failed to persist refreshed token"
 
 echo "$NEW_ACCESS"

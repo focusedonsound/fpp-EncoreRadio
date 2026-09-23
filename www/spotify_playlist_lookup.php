@@ -12,13 +12,13 @@ header('Cache-Control: no-store');
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 $input = trim((string)($_GET['url'] ?? ''));
 
-function respond($status, $data = [], $message = "") {
+function erRespond($status, $data = [], $message = "") {
   echo json_encode(array_merge(["status" => $status, "message" => $message], $data));
   exit;
 }
 
 if ($input === "") {
-  respond("ERROR", [], "Paste a Spotify playlist link first.");
+  erRespond("ERROR", [], "Paste a Spotify playlist link first.");
 }
 
 // Accepts open.spotify.com/playlist/<id>[?...], spotify:playlist:<id>, or
@@ -32,7 +32,7 @@ if (preg_match('#open\.spotify\.com/playlist/([A-Za-z0-9]+)#', $input, $m)) {
   $playlistId = $input;
 }
 if ($playlistId === "") {
-  respond("ERROR", [], "That doesn't look like a Spotify playlist link, URI, or ID.");
+  erRespond("ERROR", [], "That doesn't look like a Spotify playlist link, URI, or ID.");
 }
 
 $cfg = [];
@@ -42,13 +42,13 @@ if (file_exists($configFile)) {
 }
 $refreshToken = trim((string)($cfg["spotify"]["refreshToken"] ?? ""));
 if ($refreshToken === "") {
-  respond("ERROR", [], "Spotify not connected yet - use the Connect button first.");
+  erRespond("ERROR", [], "Spotify not connected yet - use the Connect button first.");
 }
 
 $scriptDir = dirname(__DIR__) . "/scripts";
 $token = trim((string)shell_exec("bash " . escapeshellarg("{$scriptDir}/spotify_token.sh") . " 2>/dev/null"));
 if ($token === "") {
-  respond("ERROR", [], "Could not get a valid Spotify access token - try reconnecting.");
+  erRespond("ERROR", [], "Could not get a valid Spotify access token - try reconnecting.");
 }
 
 // "items" is this endpoint's current field name for track count (Spotify
@@ -65,10 +65,10 @@ curl_close($ch);
 
 $data = json_decode((string)$response, true);
 if ($httpCode !== 200 || !is_array($data) || empty($data["uri"])) {
-  respond("ERROR", [], "Couldn't look up that playlist (HTTP {$httpCode}) - it may be private, deleted, or the link is wrong.");
+  erRespond("ERROR", [], "Couldn't look up that playlist (HTTP {$httpCode}) - it may be private, deleted, or the link is wrong.");
 }
 
-respond("OK", [
+erRespond("OK", [
   "uri" => $data["uri"],
   "name" => (string)($data["name"] ?? "Untitled playlist"),
   "trackCount" => $data["items"]["total"] ?? 0,

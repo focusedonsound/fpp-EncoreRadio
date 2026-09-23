@@ -119,9 +119,18 @@ fire_announcement() {
     # the call blocks until AA's own fade-up finishes, restoring our volume
     # right after it returns lines up naturally with AA's announcement
     # actually being done, no separate wait/timer needed.
+    #
+    # Built with jq --arg, not string interpolation: $slot ultimately comes
+    # from the operator's saved config, and a value containing a stray
+    # quote/brace would otherwise land as literal JSON syntax in this body -
+    # this POST goes straight to fppd's own command dispatcher (runs as
+    # root), so a malformed/hostile slot value could substitute a different
+    # command entirely rather than just failing to fire.
+    local body
+    body="$(jq -n --arg slot "$slot" '{command: "Announcement Assistant - Play", args: [$slot]}')"
     curl -s -m 30 -X POST "http://localhost/api/command" \
         -H "Content-Type: application/json" \
-        -d "{\"command\":\"Announcement Assistant - Play\",\"args\":[\"${slot}\"]}" \
+        -d "$body" \
         >> "$LOG_FILE" 2>&1 || log "WARNING: AA Play command call failed"
 
     if [[ "$self_ducked" == "yes" ]]; then

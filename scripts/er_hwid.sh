@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Encore Radio - hardware fingerprint for trial-hour tracking.
+# Encore Radio - hardware fingerprint for paid-license binding.
 #
-# Prints a stable identifier for this Pi that survives an Encore Radio
-# uninstall/reinstall (unlike a locally-generated UUID, which would reset
-# on reinstall) - the whole point being that reinstalling the plugin can't
-# be used to get a fresh trial. Prefers the CPU serial (immutable per
-# board, survives an SD card reflash too); falls back to /etc/machine-id
-# if unavailable (e.g. testing in a non-Pi environment), which is weaker
-# (a reflash regenerates it) but still resists a plain plugin reinstall.
+# Prints a stable identifier for this Pi. Trial-hour tracking is entirely
+# local and never uses this (see er_track_usage.sh/er_premium_gate.sh) -
+# this is only ever sent for validate_license_key() (er_premium_gate.sh),
+# to bind a paid license key to the device it was first validated on.
+# Prefers the CPU serial (immutable per board, survives an SD card
+# reflash too); falls back to /etc/machine-id if unavailable (e.g.
+# testing in a non-Pi environment), which is weaker (a reflash
+# regenerates it) but still identifies the device across a plain plugin
+# reinstall.
 
 set -uo pipefail
 

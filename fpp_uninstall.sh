@@ -13,6 +13,15 @@ if [[ -x "${here}/scripts/er_stop.sh" ]]; then
   "${here}/scripts/er_stop.sh" >/dev/null 2>&1 || true
 fi
 
+# Direct fallback in case er_stop.sh above didn't run or didn't get this
+# far (its own failure is swallowed by `|| true`) - a live CIFS mount left
+# behind here points at a NAS the plugin directory (with the only tooling
+# that knew how to unmount it) is about to be deleted out from under.
+NETSHARE_MOUNT="/run/fpp-EncoreRadio-netshare"
+if mountpoint -q "$NETSHARE_MOUNT" 2>/dev/null; then
+  umount "$NETSHARE_MOUNT" 2>/dev/null || umount -l "$NETSHARE_MOUNT" 2>/dev/null || true
+fi
+
 # Raspotify's systemd service is exclusively ours - nothing else in this
 # ecosystem uses it - so it's safe to stop/disable on uninstall. The
 # raspotify package itself is left installed (a `Reinstall All` or plugin
@@ -43,22 +52,28 @@ if [[ -f "$PULSE_SVC" ]]; then
   log "Reverting Encore Radio's PulseAudio setup (nothing else appears to depend on it)"
   systemctl stop encoreradio-pulse.service 2>/dev/null || true
   systemctl disable encoreradio-pulse.service 2>/dev/null || true
-  rm -f "$PULSE_SVC"
+  rm -f "$PULSE_SVC" || true
   systemctl daemon-reload 2>/dev/null || true
 
+  # Every step below is `|| true`'d deliberately: the plugin directory
+  # gets rm -rf'd right after this script exits regardless of its exit
+  # code (scripts/uninstall_plugin), so there's no second chance to finish
+  # teardown - one unguarded failure under `set -e` would abort the rest
+  # of this block (including the restartFlag at the very end) rather than
+  # just skip its own step.
   SYSTEM_PA="/etc/pulse/system.pa"
   SYSTEM_PA_BAK="${SYSTEM_PA}.er.bak"
   if [[ -f "$SYSTEM_PA_BAK" ]]; then
-    mv -f "$SYSTEM_PA_BAK" "$SYSTEM_PA"
+    mv -f "$SYSTEM_PA_BAK" "$SYSTEM_PA" || true
     log "Restored original /etc/pulse/system.pa from backup"
   elif [[ -f "$SYSTEM_PA" ]]; then
-    rm -f "$SYSTEM_PA"
+    rm -f "$SYSTEM_PA" || true
     log "Removed Encore Radio's system.pa (no pre-install backup existed)"
   fi
 
   CLIENT_CONF="/home/fpp/.config/pulse/client.conf"
   if [[ -f "$CLIENT_CONF" ]]; then
-    rm -f "$CLIENT_CONF"
+    rm -f "$CLIENT_CONF" || true
     log "Removed fpp user's Pulse client pin"
   fi
   pkill -u fpp pulseaudio 2>/dev/null || true

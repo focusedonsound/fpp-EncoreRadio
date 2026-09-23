@@ -81,12 +81,52 @@ install_pkgs_if_missing() {
   fi
 }
 
+# Split out of install_raspotify_if_needed() so it always runs, even when
+# raspotify was already installed and that function returns early - a
+# raspotify package upgrade (outside this plugin's control) can reset
+# /etc/raspotify/conf, and skipping this on every run but the very first
+# would leave Spotify silently routed to ALSA (wrong backend) or the
+# device name no longer matching spotify_web.sh's exact-name lookup.
+fixup_raspotify_conf() {
+  local device_name="EncoreRadio-$(hostname)"
+  ensure_dir /etc/raspotify
+  if [[ -f /etc/raspotify/conf ]]; then
+    sed -i -E 's/^#?LIBRESPOT_BACKEND=.*/LIBRESPOT_BACKEND="pulseaudio"/' /etc/raspotify/conf
+    # device_name is hostname-derived, not a fixed literal - escape it for
+    # sed's replacement-string syntax (&, /, backslash) rather than
+    # splicing it in raw, in case the box's hostname ever contains one of
+    # those characters.
+    local device_name_sed_escaped="${device_name//\\/\\\\}"
+    device_name_sed_escaped="${device_name_sed_escaped//&/\\&}"
+    device_name_sed_escaped="${device_name_sed_escaped//\//\\/}"
+    if grep -q '^#\?LIBRESPOT_NAME=' /etc/raspotify/conf; then
+      sed -i -E "s/^#?LIBRESPOT_NAME=.*/LIBRESPOT_NAME=\"${device_name_sed_escaped}\"/" /etc/raspotify/conf
+    else
+      echo "LIBRESPOT_NAME=\"${device_name}\"" >> /etc/raspotify/conf
+    fi
+  fi
+
+  # Stored so our own scripts know which Connect device name to look up via
+  # the Web API without having to re-read raspotify's own config file.
+  # Passed via the environment, not spliced into the source string, since
+  # device_name is hostname-derived rather than a fixed literal.
+  DEVICE_NAME="$device_name" python3 -c "
+import json, os
+cfg = json.load(open('$CFG_FILE')) if os.path.exists('$CFG_FILE') else {}
+cfg.setdefault('spotify', {})['deviceName'] = os.environ['DEVICE_NAME']
+json.dump(cfg, open('$CFG_FILE', 'w'), indent=2)
+" 2>/dev/null || true
+
+  log "Raspotify device name: ${device_name}."
+}
+
 install_raspotify_if_needed() {
   # librespot itself has no prebuilt ARM binaries (checked: GitHub releases
   # ship source only). Raspotify is the standard, maintained Spotify Connect
   # package for Raspberry Pi - a proper .deb, not a random curl|sh script.
   if command -v librespot >/dev/null 2>&1 || dpkg -s raspotify >/dev/null 2>&1; then
     log "Raspotify/librespot already installed."
+    fixup_raspotify_conf
     # Whether it ends up enabled/started is decided below by
     # er_sync_spotify_service.sh, based on whether Spotify is actually
     # configured - not unconditionally, which would leave every free-tier
@@ -165,28 +205,7 @@ except Exception:
     return 0
   fi
 
-  # Defaults to ALSA; we route everything through PulseAudio (same socket
-  # AA ducks / our other backends use) and give it a name our own Web API
-  # device lookup can recognize by an exact match.
-  local device_name="EncoreRadio-$(hostname)"
-  ensure_dir /etc/raspotify
-  if [[ -f /etc/raspotify/conf ]]; then
-    sed -i -E 's/^#?LIBRESPOT_BACKEND=.*/LIBRESPOT_BACKEND="pulseaudio"/' /etc/raspotify/conf
-    if grep -q '^#\?LIBRESPOT_NAME=' /etc/raspotify/conf; then
-      sed -i -E "s/^#?LIBRESPOT_NAME=.*/LIBRESPOT_NAME=\"${device_name}\"/" /etc/raspotify/conf
-    else
-      echo "LIBRESPOT_NAME=\"${device_name}\"" >> /etc/raspotify/conf
-    fi
-  fi
-
-  # Stored so our own scripts know which Connect device name to look up via
-  # the Web API without having to re-read raspotify's own config file.
-  python3 -c "
-import json
-cfg = json.load(open('$CFG_FILE')) if __import__('os').path.exists('$CFG_FILE') else {}
-cfg.setdefault('spotify', {})['deviceName'] = '${device_name}'
-json.dump(cfg, open('$CFG_FILE', 'w'), indent=2)
-" 2>/dev/null || true
+  fixup_raspotify_conf
 
   # The raspotify .deb's own postinst may enable/start the service; leave
   # the actual enabled/started decision to er_sync_spotify_service.sh
@@ -194,7 +213,7 @@ json.dump(cfg, open('$CFG_FILE', 'w'), indent=2)
   # up broadcasting a Spotify Connect device it never asked for.
   systemctl daemon-reload
 
-  log "Raspotify installed - device name: ${device_name}. One-time pairing still needed (see plugin page)."
+  log "Raspotify installed. One-time pairing still needed (see plugin page)."
 }
 
 ensure_users_in_audio_group() {
@@ -234,12 +253,23 @@ setup_system_pulseaudio_if_needed() {
 
 .nofail
 
-load-module module-native-protocol-unix auth-anonymous=1 socket=/run/pulse/native
+# auth-group (not auth-anonymous, and the socket below is 0660 rather than
+# world-writable) restricts connections to members of the audio group -
+# ensure_users_in_audio_group() already puts pulse and fpp in it - rather
+# than letting any local process/UID connect and play or capture audio.
+load-module module-native-protocol-unix auth-group=audio socket=/run/pulse/native
 load-module module-udev-detect
 load-module module-always-sink
 load-module module-stream-restore
 load-module module-device-restore
 load-module module-default-device-restore
+# Lets an idle sink release the underlying ALSA device instead of holding
+# it open indefinitely - without this, this daemon claiming the card at
+# boot (module-udev-detect, above) can leave nothing else able to open it
+# even when this plugin's sources are never used. Stock Debian's own
+# system.pa loads this by default; this file replaces that file wholesale,
+# so it has to be re-added explicitly here.
+load-module module-suspend-on-idle
 EOF
   chmod 644 "$system_pa"
 
@@ -255,7 +285,7 @@ ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0755 /run/pulse
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config
 ExecStartPre=/usr/bin/install -d -o pulse -g pulse -m 0700 /run/pulse/.config/pulse
 ExecStart=/usr/bin/pulseaudio --system -nF /etc/pulse/system.pa --disallow-exit --exit-idle-time=-1 --log-target=journal
-ExecStartPost=/bin/sh -c 'chmod 0666 /run/pulse/native || true'
+ExecStartPost=/bin/sh -c 'chgrp audio /run/pulse/native && chmod 0660 /run/pulse/native || true'
 Restart=on-failure
 RestartSec=1
 
@@ -602,23 +632,54 @@ main() {
     log "FPP installer context: FPPDIR=${FPPDIR:-<unset>} SRCDIR=${SRCDIR:-<unset>} PLUGINDIR=${PLUGINDIR:-<unset>}"
   fi
 
+  local here
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+  # fpp_install.sh is also the update path (no scripts/fpp_upgrade.sh
+  # ships) - the background watchdogs (er_playback_scheduler.sh,
+  # er_customstream_watchdog.sh, er_announce_scheduler.sh) are plain
+  # nohup loops that don't die with fppd, so an upgrade would otherwise
+  # swap the scripts out from under them while they keep running and
+  # keep calling the now-replaced helpers. Stop them first; whatever was
+  # playing restarts cleanly on the next scheduled/manual Start.
+  if [[ -x "${here}/scripts/er_stop.sh" ]]; then
+    bash "${here}/scripts/er_stop.sh" >/dev/null 2>&1 || true
+  fi
+
   install_pkgs_if_missing
   ensure_users_in_audio_group
   setup_system_pulseaudio_if_needed
   seed_default_config_if_missing
   install_raspotify_if_needed
 
-  local here
-  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   bash "${here}/scripts/er_sync_spotify_service.sh" 2>&1 || true
 
   fix_plugin_script_perms
   post_install_notes
 
-  set +u
-  . "${FPPDIR:-/opt/fpp}/scripts/common" 2>/dev/null || true
-  set -u
-  setSetting restartFlag 1 2>/dev/null || true
+  # fppd only reads commands/descriptions.json at its own startup, so a
+  # restart is genuinely needed the first time this plugin's commands
+  # become known - but fpp_install.sh is also the update path, and most
+  # updates don't touch that file at all. Only force the restart (which,
+  # mid-show, stops the show) when descriptions.json's content actually
+  # changed since the last time this ran, tracked by a hash alongside the
+  # plugin's own config rather than assuming every run needs one.
+  local descHashFile="${CFG_DIR}/.descriptions_json_sha256"
+  local descFile="${here}/commands/descriptions.json"
+  if [[ -f "$descFile" ]]; then
+    local newHash prevHash=""
+    newHash="$(sha256sum "$descFile" 2>/dev/null | awk '{print $1}')"
+    [[ -f "$descHashFile" ]] && prevHash="$(cat "$descHashFile" 2>/dev/null || echo "")"
+    if [[ -n "$newHash" && "$newHash" != "$prevHash" ]]; then
+      set +u
+      . "${FPPDIR:-/opt/fpp}/scripts/common" 2>/dev/null || true
+      set -u
+      setSetting restartFlag 1 2>/dev/null || true
+      echo "$newHash" > "$descHashFile" 2>/dev/null || true
+      chmod 600 "$descHashFile" 2>/dev/null || true
+      log "commands/descriptions.json changed - requested an fppd restart"
+    fi
+  fi
 
   log "Done."
   show_easter_egg
