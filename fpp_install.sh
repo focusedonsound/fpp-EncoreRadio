@@ -65,7 +65,16 @@ install_pkgs_if_missing() {
   local pkgs=(ffmpeg pianobar pulseaudio pulseaudio-utils libasound2-plugins curl python3 jq cifs-utils)
 
   for p in "${pkgs[@]}"; do
-    if ! dpkg -s "$p" >/dev/null 2>&1; then
+    # `dpkg -s` exits 0 as long as dpkg has ANY record of the package,
+    # including "deinstall ok config-files" (removed, config left behind)
+    # - found on real hardware: pulseaudio was in exactly that state on an
+    # FPP 10.x/PipeWire box (removed in favor of pipewire-pulse at some
+    # point), and this check's exit-code-only test treated it as present,
+    # so encoreradio-pulse.service failed with status=203/EXEC (no
+    # /usr/bin/pulseaudio binary at all) instead of ever attempting the
+    # install. Match the actual "installed" status line, not just dpkg
+    # having heard of the package.
+    if ! dpkg -s "$p" 2>/dev/null | grep -q '^Status: install ok installed$'; then
       missing=1
       break
     fi
@@ -124,7 +133,7 @@ install_raspotify_if_needed() {
   # librespot itself has no prebuilt ARM binaries (checked: GitHub releases
   # ship source only). Raspotify is the standard, maintained Spotify Connect
   # package for Raspberry Pi - a proper .deb, not a random curl|sh script.
-  if command -v librespot >/dev/null 2>&1 || dpkg -s raspotify >/dev/null 2>&1; then
+  if command -v librespot >/dev/null 2>&1 || dpkg -s raspotify 2>/dev/null | grep -q '^Status: install ok installed$'; then
     log "Raspotify/librespot already installed."
     fixup_raspotify_conf
     # Whether it ends up enabled/started is decided below by
