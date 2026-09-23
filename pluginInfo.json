@@ -90,8 +90,10 @@
     "sensors": [],
     "remoteAccess": "lan",
     "systemChanges": [
-      { "kind": "service", "what": "Creates a system-wide PulseAudio service; overwrites /etc/pulse/system.pa; adds pulse/fpp to the audio group" },
-      { "kind": "download", "what": "Downloads/installs Raspotify (Spotify Connect) and its config; only enabled once Spotify is configured" },
+      { "kind": "service", "what": "Creates and enables encoreradio-pulse.service (system-wide PulseAudio); overwrites /etc/pulse/system.pa" },
+      { "kind": "privilege", "what": "Adds the pulse and fpp users to the audio group" },
+      { "kind": "download", "what": "Downloads/installs Raspotify (Spotify Connect); only enabled once Spotify is configured" },
+      { "kind": "core-settings", "what": "Edits /etc/raspotify/conf (audio backend, device name) when Raspotify is installed" },
       { "kind": "network", "what": "Mounts a network share on demand (outside media/); the local relay listens on 127.0.0.1 only" }
     ],
     "closedCode": false,
