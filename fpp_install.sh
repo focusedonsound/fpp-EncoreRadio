@@ -262,11 +262,17 @@ setup_system_pulseaudio_if_needed() {
 
 .nofail
 
-# auth-group (not auth-anonymous, and the socket below is 0660 rather than
-# world-writable) restricts connections to members of the audio group -
-# ensure_users_in_audio_group() already puts pulse and fpp in it - rather
-# than letting any local process/UID connect and play or capture audio.
-load-module module-native-protocol-unix auth-group=audio socket=/run/pulse/native
+# auth-group alone does nothing - confirmed against PulseAudio's own
+# source (src/modules/module-protocol-stub.c): naming a group is only
+# read if auth-group-enable=1 is ALSO set, otherwise the argument is
+# parsed and silently ignored. Real access control happens via SO_PEERCRED
+# at accept() time once both are set - ensure_users_in_audio_group()
+# already puts pulse and fpp in the audio group - not via the socket
+# file's own permission bits, which PulseAudio manages itself and can
+# leave wide open even with the group check correctly enabled; the
+# ExecStartPost chmod below is defense in depth on top of that, not the
+# actual gate.
+load-module module-native-protocol-unix auth-group=audio auth-group-enable=1 socket=/run/pulse/native
 load-module module-udev-detect
 load-module module-always-sink
 load-module module-stream-restore
