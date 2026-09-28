@@ -691,9 +691,16 @@ main() {
       set -u
       setSetting restartFlag 1 2>/dev/null || true
       echo "$newHash" > "$descHashFile" 2>/dev/null || true
-      chmod 600 "$descHashFile" 2>/dev/null || true
       log "commands/descriptions.json changed - requested an fppd restart"
     fi
+  fi
+
+  # This script runs as root, so the hash file is created root-owned. Left
+  # that way, the fpp user can't read it and a remote backup/rsync of
+  # /home/fpp/media fails on it. Also repairs files left by earlier versions.
+  if [[ -f "$descHashFile" ]]; then
+    chown fpp:fpp "$descHashFile" 2>/dev/null || true
+    chmod 600 "$descHashFile" 2>/dev/null || true
   fi
 
   log "Done."
