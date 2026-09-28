@@ -8,6 +8,7 @@
   "bugURL": "https://github.com/focusedonsound/fpp-EncoreRadio/issues",
   "iconURL": "https://raw.githubusercontent.com/focusedonsound/fpp-EncoreRadio/master/icon.png",
   "allowUpdates": 1,
+  "releaseNotesStyle": "gitRelease",
   "minMemoryMB": 512,
   "minCpuCores": 2,
   "privacy": {
