@@ -84,7 +84,17 @@ install_pkgs_if_missing() {
     log "Installing required packages (ffmpeg, pianobar, pulseaudio, curl, python3, jq, cifs-utils)…"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
-    apt-get install -y --no-install-recommends "${pkgs[@]}"
+    # DEBIAN_FRONTEND only silences debconf; it does nothing for dpkg's own
+    # conffile prompt. Any apt-get run also tries to finish configuring
+    # whatever OTHER package is left half-installed on the box (seen on real
+    # hardware: a stale /etc/mpd.conf from an unrelated package), and with no
+    # TTY to answer that prompt dpkg errors out and apt-get exit-100s on
+    # every package in this list, including ones already installed. Force
+    # the conffile decision so a foreign package's leftover prompt can never
+    # block this plugin's own install.
+    apt-get install -y --no-install-recommends \
+      -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+      "${pkgs[@]}"
   else
     log "Required packages already installed."
   fi
@@ -206,7 +216,9 @@ except Exception:
   fi
 
   dpkg -i "$tmp_deb" 2>&1 || true
-  apt-get install -y -f 2>&1 || true
+  DEBIAN_FRONTEND=noninteractive apt-get install -y -f \
+    -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+    2>&1 || true
   rm -f "$tmp_deb"
 
   if ! command -v librespot >/dev/null 2>&1; then
