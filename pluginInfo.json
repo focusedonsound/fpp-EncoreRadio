@@ -16,7 +16,7 @@
     "sends": [
       {
         "to": "encoreradio-license.nscilingo.workers.dev",
-        "what": "Hardware ID + license key when validating; your email if saved, for reminders; relays Spotify OAuth",
+        "what": "Hardware ID + license key when validating; your email if saved, for reminders; for Spotify sign-in, the OAuth code and your device's own local callback address (token exchange itself happens entirely on your device, not the server)",
         "why": "license validation, optional email reminders, and unlocking Pandora/Spotify/Rotation",
         "alwaysOn": false
       },
