@@ -16,7 +16,7 @@
     "sends": [
       {
         "to": "encoreradio-license.nscilingo.workers.dev",
-        "what": "Hardware ID + license key when validating; your email if saved, for reminders; for Spotify sign-in, the OAuth code and your device's own local callback address (token exchange itself happens entirely on your device, not the server)",
+        "what": "Hardware ID + license key when validating; email for reminders; Spotify sign-in code + callback URL",
         "why": "license validation, optional email reminders, and unlocking Pandora/Spotify/Rotation",
         "alwaysOn": false
       },
@@ -91,15 +91,15 @@
     "sensors": [],
     "remoteAccess": "lan",
     "systemChanges": [
-      { "kind": "service", "what": "Creates and enables encoreradio-pulse.service - on FPP 9.x/no PipeWire this is a system-wide PulseAudio instance and overwrites /etc/pulse/system.pa; on FPP 10.x/PipeWire it instead installs and runs pipewire-pulse (no system.pa involved), joined to FPP's own PipeWire graph" },
+      { "kind": "service", "what": "Creates and enables encoreradio-pulse.service - a system-wide PulseAudio/PipeWire-pulse instance for playback" },
       { "kind": "service", "what": "Enables Raspotify (raspotify.service) once Spotify is configured; not started otherwise" },
       { "kind": "privilege", "what": "Adds the pulse and fpp users to the audio group" },
       { "kind": "download", "what": "Downloads/installs the Raspotify .deb from dtcooper.github.io, checksum-verified via api.github.com when available" },
       { "kind": "core-settings", "what": "Edits /etc/raspotify/conf (audio backend, device name) when Raspotify is installed" },
-      { "kind": "network", "what": "Reads a network (SMB) share you configure via smbclient, in small batches, not a kernel filesystem mount; the local relay listens on 127.0.0.1 only" }
+      { "kind": "network", "what": "Reads a configured SMB share via smbclient in small batches - no kernel mount; local relay listens on 127.0.0.1 only" }
     ],
     "closedCode": false,
-    "other": "Pandora, Spotify, and Source Rotation are locked until you register an email or already have a license key; Source Fallback and the free sources are never gated. Uninstalling leaves plugindata/fpp-EncoreRadio/ (config, license, trial progress, saved credentials), the raspotify package and /etc/raspotify/conf, and the pulse/fpp audio-group membership in place - reinstalling doesn't lose your settings or need to re-download anything. The PulseAudio/PipeWire-pulse changes above are only reverted when this plugin was the one that created them; if another plugin (e.g. Announcement Assistant) set them up first, uninstalling leaves that alone."
+    "other": "Pandora, Spotify, and Source Rotation are locked until you register an email or already have a license key; Source Fallback and the free sources are never gated. Uninstalling leaves plugindata/fpp-EncoreRadio/ (config, license, trial progress, saved credentials), the raspotify package and /etc/raspotify/conf, and the pulse/fpp audio-group membership in place - reinstalling doesn't lose your settings or need to re-download anything. The PulseAudio/PipeWire-pulse changes above are only reverted when this plugin was the one that created them; if another plugin (e.g. Announcement Assistant) set them up first, uninstalling leaves that alone. Spotify sign-in: the OAuth code and your device's own local callback address transit the license server (encoreradio-license.nscilingo.workers.dev/spotify/callback), which just bounces your browser back to this device - token exchange itself happens entirely on the device, never on the server. The PulseAudio/PipeWire-pulse service: on FPP 9.x/no PipeWire it's a real system-wide PulseAudio instance and overwrites /etc/pulse/system.pa; on FPP 10.x/PipeWire it installs and runs pipewire-pulse instead (no system.pa involved), joined to FPP's own PipeWire graph. Network Share: never a kernel filesystem mount - reads the share through smbclient in small rolling batches (a few tracks staged locally at a time, deleted after playing), so a dead/unreachable NAS only ever fails this plugin's own next fetch, and a library far larger than local storage still works."
   },
   "versions": [
     {
