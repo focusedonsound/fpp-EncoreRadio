@@ -21,6 +21,39 @@ PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [start-source] $*" >> "$LOG_FILE"; }
 
+relay_port() {
+    python3 -c "
+import json
+try:    print(int(json.load(open('$CFG_FILE')).get('relay', {}).get('port', 8123)))
+except: print(8123)
+" 2>/dev/null || echo 8123
+}
+
+# ffmpeg has to open/probe the remote source before it opens its local
+# HTTP listen socket - for a real radio stream that routinely takes longer
+# than a fixed couple of seconds, and ffplay (unlike a browser) doesn't
+# retry a refused connection, it just gives up. Poll for the port actually
+# in LISTEN state instead of guessing a fixed delay, so a slow remote
+# stream doesn't silently lose audio on every source.
+#
+# This must NOT actually connect to test it: the relay is `ffmpeg -listen
+# 1`, an HTTP server that accepts exactly one connection ever - a
+# connect-and-close probe (e.g. bash's /dev/tcp) consumes that one slot
+# itself, leaving ffplay's real connection refused right after.
+wait_for_relay() {
+    local port="$1" tries=40
+    if ! command -v ss >/dev/null 2>&1; then
+        log "WARNING: 'ss' not found, falling back to a fixed delay before playback"
+        sleep 3
+        return 0
+    fi
+    for ((i = 0; i < tries; i++)); do
+        ss -ltn "sport = :${port}" 2>/dev/null | grep -q LISTEN && return 0
+        sleep 0.25
+    done
+    return 1
+}
+
 SOURCE="${1:-}"
 mkdir -p "$STATE_DIR" 2>/dev/null || true
 
@@ -40,7 +73,10 @@ case "$SOURCE" in
             log "ERROR: $SOURCE backend failed to start (exit $BACKEND_RC)"
             exit "$BACKEND_RC"
         fi
-        sleep 2
+        if ! wait_for_relay "$(relay_port)"; then
+            log "ERROR: relay never opened its local port for $SOURCE - not starting playback"
+            exit 1
+        fi
         bash "${PLUGIN_DIR}/scripts/er_play_pulse.sh"
         ;;
     spotify)
