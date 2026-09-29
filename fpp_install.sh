@@ -63,6 +63,19 @@ pipewire_present() {
     [[ -S "${PIPEWIRE_RUNTIME_DIR}/pipewire-0" ]]
 }
 
+# Announcement Assistant exposes this same /run/pulse/native socket, and
+# each plugin used to unconditionally tear down and rebuild it on every
+# install/update - whichever ran last would rm -rf /run/pulse out from
+# under the other, orphaning its still-running bridge process. Reuse an
+# existing socket, but check it's actually alive (a real pactl round
+# trip), not just that the file exists: a stale file left by a crashed
+# instance must still be replaced, a healthy one owned by the other
+# plugin must not be torn down.
+pulse_bridge_alive() {
+  [[ -S /run/pulse/native ]] || return 1
+  timeout 3 env PULSE_SERVER=unix:/run/pulse/native pactl info >/dev/null 2>&1
+}
+
 install_pkgs_if_missing() {
   local missing=0
   # ffmpeg: local relay + TuneIn/Pandora re-streaming
@@ -280,8 +293,8 @@ ensure_users_in_audio_group() {
 # Radio install - already stood up a system PulseAudio), reuse it rather
 # than fighting over the same socket with a second service.
 setup_system_pulseaudio_if_needed() {
-  if [[ -S /run/pulse/native ]]; then
-    log "System PulseAudio socket already present (/run/pulse/native) - reusing it."
+  if pulse_bridge_alive; then
+    log "System PulseAudio socket already present and responding (/run/pulse/native) - reusing it."
     return 0
   fi
 
