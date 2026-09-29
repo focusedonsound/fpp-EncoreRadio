@@ -51,18 +51,47 @@ ensure_dir() {
   [[ -d "$d" ]] || mkdir -p "$d"
 }
 
+# FPP 10.x boxes run PipeWire (fpp-pipewire.service) as the system audio
+# stack, with fpp-pipewire-pulse.service bridging it to the PulseAudio
+# protocol at its own root-only socket. Real, actual detection (a running
+# service + its socket), not a version check - GStreamer/PipeWire
+# availability doesn't line up cleanly with FPP major versions, same
+# reasoning Announcement Assistant's own probe uses for ducking.
+PIPEWIRE_RUNTIME_DIR="/run/pipewire-fpp"
+pipewire_present() {
+  systemctl is-active --quiet fpp-pipewire.service 2>/dev/null && \
+    [[ -S "${PIPEWIRE_RUNTIME_DIR}/pipewire-0" ]]
+}
+
 install_pkgs_if_missing() {
   local missing=0
   # ffmpeg: local relay + TuneIn/Pandora re-streaming
   # pianobar: headless Pandora client (premium-tier backend)
-  # pulseaudio/pulseaudio-utils/libasound2-plugins: FPP 9.x playback path -
-  # NOT installed by FPP itself by default (confirmed on a fresh v9.5 test
-  # box - only libpulse0 client libs are present, no server), so this
-  # plugin has to be able to stand this up on its own rather than assuming
-  # Announcement Assistant already did it.
+  # pulseaudio-utils/libasound2-plugins: pactl + the ALSA pulse-protocol
+  # PCM plugin, needed either way and never in conflict with anything.
   # jq/python3: JSON config helpers, matches AA's convention
   # cifs-utils: mount.cifs, for the Network Share (SMB) source
-  local pkgs=(ffmpeg pianobar pulseaudio pulseaudio-utils libasound2-plugins curl python3 jq cifs-utils)
+  #
+  # The actual PulseAudio-protocol SERVER differs by box:
+  #   - FPP 9.x/no PipeWire: nothing provides one by default (confirmed on
+  #     a fresh v9.5 test box - only libpulse0 client libs present), so
+  #     install the real `pulseaudio` package and stand our own instance up.
+  #   - FPP 10.x/PipeWire: Debian's `pipewire-alsa` package - the ALSA
+  #     shim that routes ordinary ALSA apps (including fppd's own show
+  #     audio) through PipeWire - has a hard `Conflicts: pulseaudio` in its
+  #     own package metadata. Installing the real `pulseaudio` package
+  #     forces apt to REMOVE pipewire-alsa to satisfy that conflict,
+  #     silently breaking ALSA-via-PipeWire for everything else on the box
+  #     (reported by a real user: "installing pulseaudio [this plugin's
+  #     dependency] breaks pipewire"). `pipewire-pulse` provides the exact
+  #     same PulseAudio wire protocol without that conflict (verified:
+  #     `apt-cache show pipewire-pulse` has no Conflicts/Breaks against
+  #     pipewire-alsa, and a dry-run install removes nothing) - use it
+  #     instead, as our own dedicated instance joined to FPP's real
+  #     PipeWire graph. See setup_system_pulseaudio_if_needed().
+  local pulse_server_pkg="pulseaudio"
+  pipewire_present && pulse_server_pkg="pipewire-pulse"
+  local pkgs=(ffmpeg pianobar "$pulse_server_pkg" pulseaudio-utils libasound2-plugins curl python3 jq cifs-utils)
 
   for p in "${pkgs[@]}"; do
     # `dpkg -s` exits 0 as long as dpkg has ANY record of the package,
@@ -81,7 +110,7 @@ install_pkgs_if_missing() {
   done
 
   if [[ "$missing" -eq 1 ]]; then
-    log "Installing required packages (ffmpeg, pianobar, pulseaudio, curl, python3, jq, cifs-utils)…"
+    log "Installing required packages (ffmpeg, pianobar, ${pulse_server_pkg}, curl, python3, jq, cifs-utils)…"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
     # DEBIAN_FRONTEND only silences debconf; it does nothing for dpkg's own
@@ -258,6 +287,81 @@ setup_system_pulseaudio_if_needed() {
 
   log "No system PulseAudio socket found - setting one up."
 
+  if pipewire_present; then
+    setup_system_pipewire_pulse
+  else
+    setup_system_real_pulseaudio
+  fi
+
+  local d="/home/fpp/.config/pulse"
+  ensure_dir "$d"
+  cat > "${d}/client.conf" <<'EOF'
+autospawn = no
+default-server = unix:/run/pulse/native
+EOF
+  chown -R fpp:fpp "/home/fpp/.config" 2>/dev/null || true
+
+  log "System PulseAudio ready at /run/pulse/native"
+}
+
+# PipeWire boxes: run our OWN pipewire-pulse instance rather than the real
+# `pulseaudio` package, joined to FPP's already-running PipeWire graph
+# (PIPEWIRE_RUNTIME_DIR=/run/pipewire-fpp - the same graph fppd's own show
+# audio uses) so this plugin's audio actually mixes with everything else
+# on the box instead of going to a disconnected PipeWire session of its
+# own. Exposes the exact same /run/pulse/native socket path the legacy
+# path below uses, so AA/EncoreRadio's "socket already present, reuse it"
+# check works identically either way. See install_pkgs_if_missing() for
+# why the real `pulseaudio` package can't be used here at all.
+setup_system_pipewire_pulse() {
+  log "PipeWire detected - setting up our own pipewire-pulse instance (not real pulseaudio, which conflicts with pipewire-alsa)."
+
+  local svc="/etc/systemd/system/encoreradio-pulse.service"
+  cat > "$svc" <<EOF
+[Unit]
+Description=Encore Radio - PipeWire PulseAudio-compatible bridge for after-hours playback
+After=sound.target fpp-pipewire.service
+Requires=fpp-pipewire.service
+
+[Service]
+Type=simple
+# FPP's own PipeWire graph socket (/run/pipewire-fpp/pipewire-0) is
+# root:audio mode 0755 - group-readable but NOT group-writable, and
+# AF_UNIX connect() requires write permission on the socket inode
+# (confirmed with strace: an unprivileged fpp-group client gets EACCES on
+# connect(), not a missing-file error). No unprivileged process can join
+# that graph as a client at all - this is a property of FPP's own
+# fpp-pipewire.service, not something fixable from here. FPP's own bridge
+# (fpp-pipewire-pulse.service) runs as root for exactly this reason; match
+# that same, already-established privilege level rather than fpp/fpp.
+Environment=PIPEWIRE_RUNTIME_DIR=${PIPEWIRE_RUNTIME_DIR}
+Environment=XDG_RUNTIME_DIR=${PIPEWIRE_RUNTIME_DIR}
+Environment=PULSE_RUNTIME_PATH=/run/pulse
+ExecStartPre=/usr/bin/install -d -o fpp -g fpp -m 0755 /run/pulse
+ExecStart=/usr/bin/pipewire-pulse
+ExecStartPost=/bin/sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do [ -S /run/pulse/native ] && break; sleep 0.2; done; chgrp audio /run/pulse/native && chmod 0660 /run/pulse/native || true'
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  chmod 644 "$svc"
+  systemctl daemon-reload
+  systemctl enable encoreradio-pulse.service
+  systemctl restart encoreradio-pulse.service
+  sleep 1
+
+  if [[ ! -S /run/pulse/native ]]; then
+    log "ERROR: Pulse socket /run/pulse/native was not created."
+    journalctl -u encoreradio-pulse.service -b --no-pager | tail -n 40 || true
+    exit 1
+  fi
+}
+
+# Legacy FPP 9.x/no-PipeWire path: nothing on the box provides a
+# PulseAudio-protocol server by default, so stand up the real thing.
+setup_system_real_pulseaudio() {
   local pulse_dir="/etc/pulse"
   local system_pa="${pulse_dir}/system.pa"
   ensure_dir "$pulse_dir"
@@ -330,16 +434,6 @@ EOF
     journalctl -u encoreradio-pulse.service -b --no-pager | tail -n 40 || true
     exit 1
   fi
-
-  local d="/home/fpp/.config/pulse"
-  ensure_dir "$d"
-  cat > "${d}/client.conf" <<'EOF'
-autospawn = no
-default-server = unix:/run/pulse/native
-EOF
-  chown -R fpp:fpp "/home/fpp/.config" 2>/dev/null || true
-
-  log "System PulseAudio ready at /run/pulse/native"
 }
 
 seed_default_config_if_missing() {
