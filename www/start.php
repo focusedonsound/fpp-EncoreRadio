@@ -5,8 +5,8 @@ header('Content-Type: application/json');
 
 // FPP has no login by default; a state-changing action must never run on a
 // GET, or a plain <img>/<iframe> on any page an operator has open could
-// start playback (which, as root, mounts a configured network share and
-// spawns ffmpeg/pianobar) without any interaction at all.
+// start playback (which spawns ffmpeg/pianobar, and reads a configured
+// network share via smbclient) without any interaction at all.
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['ok' => false, 'error' => 'POST required']);
@@ -16,11 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Dispatches through FPP's own command API (POST /api/command/{name},
 // executed by fppd itself, which already runs as root) rather than
 // exec()'ing the script directly from this PHP-FPM process, which runs
-// as the unprivileged `fpp` user - confirmed on real hardware that mount
-// (needed for the Network Share source) fails under that path, and the
-// FPP plugin guidelines don't allow working around that with `sudo` in
-// application code ("install/hook scripts already run as root" - the
-// same is true of Commands; see scripts/backends/netshare_folder.sh).
+// as the unprivileged `fpp` user - this plugin's scripts assume that root
+// context (e.g. pianobar's config dir, the PulseAudio/PipeWire bridge
+// setup), and the FPP plugin guidelines don't allow working around a
+// missing one with `sudo` in application code ("install/hook scripts
+// already run as root" - the same is true of Commands).
 //
 // FPP's own Command protocol doesn't propagate the script's actual exit
 // code or stdout back through this call (by design - Commands are meant
@@ -30,9 +30,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // confirmed on real hardware: ScriptCommand::run() (FalconChristmas/fpp,
 // Plugins.cpp) forks the script and blocks the request thread on
 // waitpid() for its entire duration, which for us can legitimately be
-// several seconds (mounting a network share, Spotify API calls, walking
-// a Fallback chain) - so the timeout here has to be generous, not the
-// couple of seconds that would be normal for a simple API call.
+// several seconds (enumerating a network share via smbclient, Spotify API
+// calls, walking a Fallback chain) - so the timeout here has to be
+// generous, not the couple of seconds that would be normal for a simple
+// API call.
 $ch = curl_init('http://localhost/api/command/' . rawurlencode('Encore Radio - Start'));
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,

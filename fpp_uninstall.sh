@@ -14,13 +14,18 @@ if [[ -x "${here}/scripts/er_stop.sh" ]]; then
 fi
 
 # Direct fallback in case er_stop.sh above didn't run or didn't get this
-# far (its own failure is swallowed by `|| true`) - a live CIFS mount left
-# behind here points at a NAS the plugin directory (with the only tooling
-# that knew how to unmount it) is about to be deleted out from under.
-NETSHARE_MOUNT="/run/fpp-EncoreRadio-netshare"
-if mountpoint -q "$NETSHARE_MOUNT" 2>/dev/null; then
-  umount "$NETSHARE_MOUNT" 2>/dev/null || umount -l "$NETSHARE_MOUNT" 2>/dev/null || true
+# far (its own failure is swallowed by `|| true`) - a live Network Share
+# batch scheduler left running here would otherwise keep fetching from the
+# NAS after the plugin directory (the only thing that knows how to stop
+# it) is deleted out from under it.
+SCHED_PID_FILE="${STATE_DIR}/netshare_scheduler.pid"
+if [[ -f "$SCHED_PID_FILE" ]]; then
+  SCHED_PID="$(cat "$SCHED_PID_FILE" 2>/dev/null || echo "")"
+  rm -f "$SCHED_PID_FILE"
+  [[ -n "$SCHED_PID" ]] && kill "$SCHED_PID" 2>/dev/null || true
 fi
+rm -rf "${STATE_DIR}/netshare_stage" "${STATE_DIR}/netshare_remote_list.txt" 2>/dev/null || true
+rm -f "/home/fpp/media/plugindata/fpp-EncoreRadio/netshare_authfile" 2>/dev/null || true
 
 # Raspotify's systemd service is exclusively ours - nothing else in this
 # ecosystem uses it - so it's safe to stop/disable on uninstall. The
@@ -61,12 +66,22 @@ if [[ -f "$PULSE_SVC" ]]; then
   # teardown - one unguarded failure under `set -e` would abort the rest
   # of this block (including the restartFlag at the very end) rather than
   # just skip its own step.
+  #
+  # /etc/pulse/system.pa is only ever OURS to touch on the legacy (FPP
+  # 9.x/no PipeWire) path - the PipeWire path never writes it at all (see
+  # setup_system_pipewire_pulse() in fpp_install.sh), so its presence here
+  # is only reverted alongside the .er.bak marker THIS plugin itself
+  # creates before ever overwriting it - never an unconditional rm, which
+  # would risk deleting a system.pa this plugin never touched (e.g. one
+  # belonging to a real system pulseaudio install unrelated to us) on a
+  # PipeWire box where encoreradio-pulse.service exists for a completely
+  # different reason.
   SYSTEM_PA="/etc/pulse/system.pa"
   SYSTEM_PA_BAK="${SYSTEM_PA}.er.bak"
   if [[ -f "$SYSTEM_PA_BAK" ]]; then
     mv -f "$SYSTEM_PA_BAK" "$SYSTEM_PA" || true
     log "Restored original /etc/pulse/system.pa from backup"
-  elif [[ -f "$SYSTEM_PA" ]]; then
+  elif [[ -f "$SYSTEM_PA" ]] && grep -q "Encore Radio system PulseAudio config" "$SYSTEM_PA" 2>/dev/null; then
     rm -f "$SYSTEM_PA" || true
     log "Removed Encore Radio's system.pa (no pre-install backup existed)"
   fi
@@ -77,6 +92,7 @@ if [[ -f "$PULSE_SVC" ]]; then
     log "Removed fpp user's Pulse client pin"
   fi
   pkill -u fpp pulseaudio 2>/dev/null || true
+  pkill -u fpp pipewire-pulse 2>/dev/null || true
 else
   log "encoreradio-pulse.service not present - Encore Radio never owned the shared PulseAudio setup (or another plugin does) - leaving PulseAudio untouched."
 fi

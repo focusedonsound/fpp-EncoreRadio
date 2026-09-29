@@ -129,11 +129,12 @@ if (isset($_POST["customstream_saved_json"])) {
   $cfg["customstream"]["saved"] = $customstreamSaved;
 }
 
-// Reject a sharePath starting with "-": mount(8) parses an argument
-// starting with a dash as an option, not a device, if it ever ends up
-// first on the command line - scripts/backends/netshare_folder.sh already
-// guards this too, but reject it here as well rather than saving a value
-// that can only fail confusingly later.
+// Reject a sharePath starting with "-": it's smbclient's first positional
+// argument, and a leading dash would be parsed as an option instead of a
+// share if it ever ended up first on the command line -
+// scripts/backends/netshare_folder.sh already guards this too, but reject
+// it here as well rather than saving a value that can only fail
+// confusingly later.
 $postedSharePath = trim((string)($_POST["netshare_sharePath"] ?? $cfg["netshare"]["sharePath"]));
 if ($postedSharePath === "" || $postedSharePath[0] !== '-') {
   $cfg["netshare"]["sharePath"] = $postedSharePath;
@@ -145,9 +146,9 @@ $postedSharePassword = (string)($_POST["netshare_password"] ?? "");
 if ($postedSharePassword !== "" && $postedSharePassword !== "__unchanged__") {
   $cfg["netshare"]["password"] = $postedSharePassword;
 }
-// Reject ".." segments: netshare_folder.sh joins this onto the mountpoint
-// path, and a traversal here would read/stream files from outside the
-// share entirely.
+// Reject ".." segments: netshare_folder.sh passes this as smbclient's
+// initial directory (-D), and a traversal here would read/stream files
+// from outside the configured folder entirely.
 $postedFolder = trim((string)($_POST["netshare_folder"] ?? $cfg["netshare"]["folder"]));
 if (strpos($postedFolder, '..') === false) {
   $cfg["netshare"]["folder"] = $postedFolder;

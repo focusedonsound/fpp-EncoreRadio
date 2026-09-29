@@ -85,21 +85,21 @@
         "about": "operator",
         "keptDays": null,
         "canDelete": false,
-        "where": "plugindata/fpp-EncoreRadio/encoreradio.json (mode 600), and briefly in plugindata/fpp-EncoreRadio/netshare_creds (mode 600, rewritten each time the share is mounted)"
+        "where": "plugindata/fpp-EncoreRadio/encoreradio.json (mode 600), and in plugindata/fpp-EncoreRadio/netshare_authfile (mode 600) for the duration of playback - removed on Stop"
       }
     ],
     "sensors": [],
     "remoteAccess": "lan",
     "systemChanges": [
-      { "kind": "service", "what": "Creates and enables encoreradio-pulse.service (system-wide PulseAudio); overwrites /etc/pulse/system.pa" },
+      { "kind": "service", "what": "Creates and enables encoreradio-pulse.service - on FPP 9.x/no PipeWire this is a system-wide PulseAudio instance and overwrites /etc/pulse/system.pa; on FPP 10.x/PipeWire it instead installs and runs pipewire-pulse (no system.pa involved), joined to FPP's own PipeWire graph" },
       { "kind": "service", "what": "Enables Raspotify (raspotify.service) once Spotify is configured; not started otherwise" },
       { "kind": "privilege", "what": "Adds the pulse and fpp users to the audio group" },
       { "kind": "download", "what": "Downloads/installs the Raspotify .deb from dtcooper.github.io, checksum-verified via api.github.com when available" },
       { "kind": "core-settings", "what": "Edits /etc/raspotify/conf (audio backend, device name) when Raspotify is installed" },
-      { "kind": "network", "what": "Mounts a network share on demand (outside media/); the local relay listens on 127.0.0.1 only" }
+      { "kind": "network", "what": "Reads a network (SMB) share you configure via smbclient, in small batches, not a kernel filesystem mount; the local relay listens on 127.0.0.1 only" }
     ],
     "closedCode": false,
-    "other": "Pandora, Spotify, and Source Rotation are locked until you register an email or already have a license key; Source Fallback and the free sources are never gated. Uninstalling leaves plugindata/fpp-EncoreRadio/ (config, license, trial progress, saved credentials), the raspotify package and /etc/raspotify/conf, and the pulse/fpp audio-group membership in place - reinstalling doesn't lose your settings or need to re-download anything. The PulseAudio changes above are only reverted when this plugin was the one that created them; if another plugin (e.g. Announcement Assistant) set them up first, uninstalling leaves that alone."
+    "other": "Pandora, Spotify, and Source Rotation are locked until you register an email or already have a license key; Source Fallback and the free sources are never gated. Uninstalling leaves plugindata/fpp-EncoreRadio/ (config, license, trial progress, saved credentials), the raspotify package and /etc/raspotify/conf, and the pulse/fpp audio-group membership in place - reinstalling doesn't lose your settings or need to re-download anything. The PulseAudio/PipeWire-pulse changes above are only reverted when this plugin was the one that created them; if another plugin (e.g. Announcement Assistant) set them up first, uninstalling leaves that alone."
   },
   "versions": [
     {
@@ -108,7 +108,7 @@
       "branch": "master",
       "sha": "",
       "dependencies": {
-        "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "cifs-utils", "pulseaudio", "pulseaudio-utils", "libasound2-plugins"]
+        "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "smbclient", "pulseaudio", "pulseaudio-utils", "libasound2-plugins"]
       }
     },
     {
@@ -117,7 +117,7 @@
       "branch": "master",
       "sha": "",
       "dependencies": {
-        "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "cifs-utils", "pulseaudio", "pulseaudio-utils", "libasound2-plugins"]
+        "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "smbclient", "pulseaudio-utils", "libasound2-plugins"]
       }
     }
   ]

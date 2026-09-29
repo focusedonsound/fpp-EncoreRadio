@@ -53,13 +53,21 @@ fi
 
 "${HERE}/er_relay.sh" stop >/dev/null 2>&1 || true
 
-# No sudo needed - this script is only ever reached via an actual FPP
-# Command, which fppd already runs as root (see netshare_folder.sh for the
-# full explanation).
-NETSHARE_MOUNT="/run/fpp-EncoreRadio-netshare"
-if mountpoint -q "$NETSHARE_MOUNT" 2>/dev/null; then
-    umount "$NETSHARE_MOUNT" 2>/dev/null || umount -l "$NETSHARE_MOUNT" 2>/dev/null || true
+# Network Share reads the share via smbclient in a background batch
+# scheduler (see netshare_batch_scheduler.sh) rather than a kernel mount -
+# nothing to unmount, but the scheduler and its local staging directory
+# (a few tracks fetched ahead of playback) need tearing down explicitly.
+# Removing the PID file BEFORE killing the process is what actually stops
+# it (its own is_current_scheduler() check looks for its PID there - see
+# that script), not the kill itself, which is just to stop it promptly
+# instead of waiting for its next poll.
+if [[ -f "${STATE_DIR}/netshare_scheduler.pid" ]]; then
+    SCHED_PID="$(cat "${STATE_DIR}/netshare_scheduler.pid" 2>/dev/null || echo "")"
+    rm -f "${STATE_DIR}/netshare_scheduler.pid"
+    [[ -n "$SCHED_PID" ]] && kill "$SCHED_PID" 2>/dev/null || true
 fi
+rm -rf "${STATE_DIR}/netshare_stage" "${STATE_DIR}/netshare_remote_list.txt" 2>/dev/null || true
+rm -f "/home/fpp/media/plugindata/fpp-EncoreRadio/netshare_authfile" 2>/dev/null || true
 
 if [[ "$ACTIVE_SOURCE" == "spotify" ]]; then
     TOKEN="$(bash "${HERE}/spotify_token.sh" 2>/dev/null)"

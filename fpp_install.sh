@@ -83,7 +83,8 @@ install_pkgs_if_missing() {
   # pulseaudio-utils/libasound2-plugins: pactl + the ALSA pulse-protocol
   # PCM plugin, needed either way and never in conflict with anything.
   # jq/python3: JSON config helpers, matches AA's convention
-  # cifs-utils: mount.cifs, for the Network Share (SMB) source
+  # smbclient: reads the Network Share (SMB) source through a user-space
+  # client, not a kernel mount - see netshare_folder.sh for why.
   #
   # The actual PulseAudio-protocol SERVER differs by box:
   #   - FPP 9.x/no PipeWire: nothing provides one by default (confirmed on
@@ -104,7 +105,7 @@ install_pkgs_if_missing() {
   #     PipeWire graph. See setup_system_pulseaudio_if_needed().
   local pulse_server_pkg="pulseaudio"
   pipewire_present && pulse_server_pkg="pipewire-pulse"
-  local pkgs=(ffmpeg pianobar "$pulse_server_pkg" pulseaudio-utils libasound2-plugins curl python3 jq cifs-utils)
+  local pkgs=(ffmpeg pianobar "$pulse_server_pkg" pulseaudio-utils libasound2-plugins curl python3 jq smbclient)
 
   for p in "${pkgs[@]}"; do
     # `dpkg -s` exits 0 as long as dpkg has ANY record of the package,
@@ -123,7 +124,7 @@ install_pkgs_if_missing() {
   done
 
   if [[ "$missing" -eq 1 ]]; then
-    log "Installing required packages (ffmpeg, pianobar, ${pulse_server_pkg}, curl, python3, jq, cifs-utils)…"
+    log "Installing required packages (ffmpeg, pianobar, ${pulse_server_pkg}, curl, python3, jq, smbclient)…"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
     # DEBIAN_FRONTEND only silences debconf; it does nothing for dpkg's own
