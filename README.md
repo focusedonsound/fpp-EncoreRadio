@@ -54,7 +54,9 @@ a license key unlocks it for the year.
    right away.
 3. Add two FPP Schedule entries: **Encore Radio - Start** for when your
    show ends, **Encore Radio - Stop** for when you want it to end for the
-   night.
+   night. Want different Internet Radio stations at different times? Save
+   them by name, then schedule **Encore Radio - Play Station** instead of
+   Start - see [`docs/configuration.md`](docs/configuration.md#fpp-commands).
 
 That's it. For Spotify setup, network share details, and the full
 settings reference, see [`docs/configuration.md`](docs/configuration.md).

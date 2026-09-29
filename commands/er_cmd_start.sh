@@ -10,8 +10,15 @@
 # afterward. If the source is customstream and 2+ Internet Radio stations
 # are configured, also starts the free customstream_watchdog.sh failover
 # watchdog.
+#
+# Optional $1 = an Internet Radio station name (passed by the "Encore
+# Radio - Play Station" command). When given, that station becomes the
+# active customstream and plays regardless of the configured source or
+# what Rotation would pick for right now.
 
 set -uo pipefail
+
+REQUESTED_STATION="${1:-}"
 
 CFG_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
@@ -44,7 +51,16 @@ FB_ON="$(er_feature_enabled fallback)"
 # docs/how-it-works.md. Only Rotation's own check depends on the
 # premium gate; Fallback runs regardless.
 ROT_ACTIVE=0
-if [[ "$ROT_ON" == "True" ]]; then
+if [[ -n "$REQUESTED_STATION" ]]; then
+    STATION_JSON="$(er_find_customstream_station "$REQUESTED_STATION")"
+    if [[ -z "$STATION_JSON" ]]; then
+        log "ERROR: no Internet Radio station named '$REQUESTED_STATION' (check Saved Stations on the Encore Radio page)"
+        exit 1
+    fi
+    er_set_customstream_active "$STATION_JSON"
+    CONFIGURED_SOURCE="customstream"
+    log "Station requested: '$REQUESTED_STATION' - skipping Rotation's pick"
+elif [[ "$ROT_ON" == "True" ]]; then
     GATE_MSG="$(bash "${HERE}/er_premium_gate.sh" check)" && GATE_RC=0 || GATE_RC=$?
     if [[ "$GATE_RC" -eq 0 ]]; then
         ROT_ACTIVE=1

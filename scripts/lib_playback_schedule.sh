@@ -102,6 +102,29 @@ else:
 " 2>/dev/null
 }
 
+er_find_customstream_station() {
+    # $1 = station name, as picked on the "Encore Radio - Play Station"
+    # command. Searches the same list as the failover chain (active
+    # customstream + customstream.saved[]), matching case-insensitively
+    # on name (or on the URL itself, for an entry saved without a name).
+    # Prints the {"name":..., "streamUrl":...} JSON object for
+    # er_set_customstream_active, or "" if nothing matches.
+    WANT_NAME="$1" python3 -c "
+import json, os
+try:    cfg = json.load(open('$CFG_FILE'))
+except: cfg = {}
+cs = cfg.get('customstream', {})
+chain = [{'name': cs.get('name', ''), 'streamUrl': cs.get('streamUrl', '')}] + list(cs.get('saved', []))
+want = os.environ.get('WANT_NAME', '').strip().lower()
+for e in chain:
+    url = (e.get('streamUrl') or '').strip()
+    name = (e.get('name') or '').strip() or url
+    if url and want and want in (name.lower(), url.lower()):
+        print(json.dumps({'name': name, 'streamUrl': url}))
+        break
+" 2>/dev/null
+}
+
 er_set_customstream_active() {
     # $1 = JSON object {"name":..., "streamUrl":...} to make the new active
     # customstream station - persists the failover pick, same as premium
