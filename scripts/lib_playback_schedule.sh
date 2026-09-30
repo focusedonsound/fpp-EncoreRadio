@@ -131,20 +131,37 @@ er_set_customstream_active() {
     # Fallback persisting its pick into state/active.json (this instead
     # writes into config, since customstream has no separate "which one is
     # active" field of its own to key off).
+    #
+    # This runs as root (fppd runs Commands as root), but the config is
+    # owned by fpp - the web UI (www/index.php, save.php, api.php) runs as
+    # fpp and must keep being able to read and write it. The replacement
+    # file therefore takes over the existing file's owner and mode instead
+    # of ending up root:root 0600, which locks the UI out of the config.
+    # Unchanged entries skip the write entirely.
     ENTRY_JSON="$1" python3 -c "
 import json, os
 entry = json.loads(os.environ['ENTRY_JSON'])
 try:    cfg = json.load(open('$CFG_FILE'))
 except: cfg = {}
-cfg.setdefault('customstream', {})
-cfg['customstream']['name'] = entry.get('name', '')
-cfg['customstream']['streamUrl'] = entry.get('streamUrl', '')
+cs = cfg.setdefault('customstream', {})
+name, url = entry.get('name', ''), entry.get('streamUrl', '')
+if cs.get('name') == name and cs.get('streamUrl') == url:
+    raise SystemExit(0)
+cs['name'] = name
+cs['streamUrl'] = url
+try:
+    st = os.stat('$CFG_FILE')
+    owner, mode = (st.st_uid, st.st_gid), st.st_mode & 0o777
+except OSError:
+    owner, mode = None, 0o600
 tmp = '$CFG_FILE.tmp'
 with open(tmp, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
+os.chmod(tmp, mode)
+if owner is not None:
+    os.chown(tmp, *owner)
 os.replace(tmp, '$CFG_FILE')
-os.chmod('$CFG_FILE', 0o600)
 " 2>/dev/null
 }
 

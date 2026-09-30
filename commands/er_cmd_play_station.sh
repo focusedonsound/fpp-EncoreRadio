@@ -28,14 +28,34 @@ if [[ -z "$STATION" ]]; then
     exit 1
 fi
 
-log "Play Station requested: '$STATION'"
-
 # Check the name before tearing anything down - a typo'd or since-deleted
 # station shouldn't silence whatever is already playing.
-if [[ -z "$(er_find_customstream_station "$STATION")" ]]; then
+STATION_JSON="$(er_find_customstream_station "$STATION")"
+if [[ -z "$STATION_JSON" ]]; then
     log "ERROR: no Internet Radio station named '$STATION' (check Saved Stations on the Encore Radio page) - leaving current playback alone"
     exit 1
 fi
+
+# Already playing this exact station? Then there's nothing to do. This has
+# to be cheap and quiet: a repeating FPP playlist whose only entry is this
+# command re-runs it every few seconds (a command entry finishes almost
+# instantly), and restarting the stream each time would cut the audio out
+# over and over.
+WANT_URL="$(STATION_JSON="$STATION_JSON" python3 -c "
+import json, os
+print(json.loads(os.environ['STATION_JSON']).get('streamUrl', ''))
+" 2>/dev/null)"
+CUR_URL="$(python3 -c "
+import json
+try:    print(json.load(open('$CFG_FILE')).get('customstream', {}).get('streamUrl', ''))
+except: print('')
+" 2>/dev/null)"
+if [[ "$(er_active_source)" == "customstream" && -n "$WANT_URL" && "$WANT_URL" == "$CUR_URL" ]] \
+    && er_playback_alive customstream; then
+    exit 0
+fi
+
+log "Play Station requested: '$STATION'"
 
 if [[ -f "${STATE_DIR}/active.json" ]]; then
     bash "${PLUGIN_DIR}/scripts/er_stop_playback.sh"
