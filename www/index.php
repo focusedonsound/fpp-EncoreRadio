@@ -283,9 +283,9 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
               <div class="mt-3">
                 <div class="small text-muted mb-1">Saved Stations - keep as many as you like and switch between them anytime, free. Each name shows up in the <b>Encore Radio - Play Station</b> command, so FPP's Scheduler can play a different station at different times (e.g. one by day, another at night). When 2+ are saved, Encore Radio also automatically fails over down this list if the current stream drops.</div>
                 <div id="er-customstream-saved-rows"></div>
-                <div class="d-flex flex-wrap gap-2 align-items-center mt-2" style="max-width:720px;">
-                  <input type="text" class="form-control form-control-sm" id="er-station-new-name" placeholder="Station name (e.g. Night Chill)" style="flex:1 1 160px;" />
-                  <input type="text" class="form-control form-control-sm" id="er-station-new-url" placeholder="http://example.com/stream.mp3" style="flex:2 1 240px;" />
+                <div class="d-flex flex-wrap gap-2 align-items-center mt-2" style="max-width:45rem;">
+                  <input type="text" class="form-control form-control-sm" id="er-station-new-name" placeholder="Station name (e.g. Night Chill)" style="flex:1 1 10rem;" />
+                  <input type="text" class="form-control form-control-sm" id="er-station-new-url" placeholder="http://example.com/stream.mp3" style="flex:2 1 15rem;" />
                   <button type="button" class="er-btn er-btn-sm" id="er-station-add-btn" onclick="erAddOrUpdateStation()"><i class="fas fa-fw fa-plus"></i> Add Station</button>
                   <button type="button" class="er-btn er-btn-secondary er-btn-sm" id="er-station-cancel-btn" style="display:none;" onclick="erCancelStationEdit()">Cancel</button>
                 </div>
@@ -994,8 +994,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       row.className = 'd-flex flex-wrap gap-2 align-items-center mb-1';
 
       var label = document.createElement('div');
-      label.style.minWidth = '220px';
-      label.style.flex = '1 1 220px';
+      label.style.flex = '1 1 14rem';
       var nameEl = document.createElement('div');
       nameEl.className = 'small fw-bold';
       nameEl.textContent = (idx + 1) + '. ' + (entry.name || entry.streamUrl) + (entry.streamUrl === activeUrl ? '  (active)' : '');
