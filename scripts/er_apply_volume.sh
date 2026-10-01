@@ -40,11 +40,24 @@ fi
 (( VOLUME < 0 )) && VOLUME=0
 (( VOLUME > 100 )) && VOLUME=100
 
+# PID existence via /proc rather than `kill -0`: this script runs both as
+# root (er_play_pulse.sh, via fppd's Command execution - which is how
+# every real Start actually happens, Scheduler or otherwise) and as the
+# unprivileged fpp user (the web UI, via PHP-FPM) - `kill -0` on a
+# root-owned PID from fpp fails with EPERM regardless of whether the
+# process exists, which isn't "not playing", it's just the wrong
+# permission check. Confirmed on real hardware: every real-world Start
+# (always root-owned) made every live-apply from the web UI silently
+# fail at this exact check, while direct SSH testing (fpp-owned ffplay)
+# never exposed it. /proc/<pid> existence needs no signal permission -
+# any user can see whether the directory exists.
+pid_alive() { [[ -d "/proc/$1" ]]; }
+
 if [[ ! -f "$PID_FILE" ]]; then
     exit 1
 fi
 PLAYER_PID="$(cat "$PID_FILE" 2>/dev/null || echo "")"
-if [[ -z "$PLAYER_PID" ]] || ! kill -0 "$PLAYER_PID" 2>/dev/null; then
+if [[ -z "$PLAYER_PID" ]] || ! pid_alive "$PLAYER_PID"; then
     exit 1
 fi
 
@@ -75,7 +88,7 @@ except Exception:
     pass
 " 2>/dev/null)"
     [[ -n "$SINK_IDX" ]] && break
-    kill -0 "$PLAYER_PID" 2>/dev/null || exit 1
+    pid_alive "$PLAYER_PID" || exit 1
     sleep 0.25
 done
 
