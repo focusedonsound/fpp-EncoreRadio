@@ -281,9 +281,15 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                 station that isn't in TuneIn's directory. No login required.
               </p>
               <div class="mt-3">
-                <div class="small text-muted mb-1">Saved Stations - keep a few on hand and switch between them anytime, free. When 2+ are saved, Encore Radio also automatically fails over to the next one if the current stream drops.</div>
+                <div class="small text-muted mb-1">Saved Stations - keep as many as you like and switch between them anytime, free. Each name shows up in the <b>Encore Radio - Play Station</b> command, so FPP's Scheduler can play a different station at different times (e.g. one by day, another at night). When 2+ are saved, Encore Radio also automatically fails over down this list if the current stream drops.</div>
                 <div id="er-customstream-saved-rows"></div>
-                <button type="button" class="er-btn er-btn-sm mt-1" onclick="erSaveCurrentStation()"><i class="fas fa-fw fa-bookmark"></i> Save Current as a Station</button>
+                <div class="d-flex flex-wrap gap-2 align-items-center mt-2" style="max-width:45rem;">
+                  <input type="text" class="form-control form-control-sm" id="er-station-new-name" placeholder="Station name (e.g. Night Chill)" style="flex:1 1 10rem;" />
+                  <input type="text" class="form-control form-control-sm" id="er-station-new-url" placeholder="http://example.com/stream.mp3" style="flex:2 1 15rem;" />
+                  <button type="button" class="er-btn er-btn-sm" id="er-station-add-btn" onclick="erAddOrUpdateStation()"><i class="fas fa-fw fa-plus"></i> Add Station</button>
+                  <button type="button" class="er-btn er-btn-secondary er-btn-sm" id="er-station-cancel-btn" style="display:none;" onclick="erCancelStationEdit()">Cancel</button>
+                </div>
+                <button type="button" class="er-btn er-btn-secondary er-btn-sm mt-2" onclick="erSaveCurrentStation()"><i class="fas fa-fw fa-bookmark"></i> Save Current as a Station</button>
                 <input type="hidden" name="customstream_saved_json" id="er-customstream-saved-json" />
               </div>
             </td>
@@ -944,60 +950,182 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   // scripts/er_customstream_watchdog.sh) - no separate config needed.
   var erCustomstreamSaved = <?php echo json_encode($cfg["customstream"]["saved"], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 
+  // Index being edited in the add/edit row below the list, or -1 when that
+  // row is adding a new station.
+  var erStationEditIdx = -1;
+
+  // Names are what the "Encore Radio - Play Station" command picks by, so
+  // they have to be unique (case-insensitively, same as the command's own
+  // lookup). Double quotes are dropped: FPP's command editor writes each
+  // dropdown value into a double-quoted HTML attribute.
+  function erCleanStationName(name) {
+    return (name || '').replace(/"/g, '').trim();
+  }
+  function erStationNameTaken(name, exceptIdx) {
+    var want = name.toLowerCase();
+    return erCustomstreamSaved.some(function (e, i) {
+      return i !== exceptIdx && (e.name || e.streamUrl || '').toLowerCase() === want;
+    });
+  }
+
+  function erStationButton(cls, html, title, onclick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'er-btn er-btn-sm ' + cls;
+    b.innerHTML = html;
+    b.title = title;
+    b.onclick = onclick;
+    return b;
+  }
+
   function erRenderCustomstreamSaved() {
     var container = document.getElementById('er-customstream-saved-rows');
     container.innerHTML = '';
     if (erCustomstreamSaved.length === 0) {
       var empty = document.createElement('div');
       empty.className = 'small text-muted';
-      empty.textContent = 'No saved stations yet.';
+      empty.textContent = 'No saved stations yet - add one below.';
       container.appendChild(empty);
       return;
     }
+    var activeUrl = document.querySelector('input[name="customstream_streamUrl"]').value.trim();
     erCustomstreamSaved.forEach(function (entry, idx) {
       var row = document.createElement('div');
-      row.className = 'd-flex gap-2 align-items-center mb-1';
+      row.className = 'd-flex flex-wrap gap-2 align-items-center mb-1';
 
-      var nameSpan = document.createElement('span');
-      nameSpan.className = 'small';
-      nameSpan.style.minWidth = '160px';
-      nameSpan.textContent = entry.name || entry.streamUrl;
+      var label = document.createElement('div');
+      label.style.flex = '1 1 14rem';
+      var nameEl = document.createElement('div');
+      nameEl.className = 'small fw-bold';
+      nameEl.textContent = (idx + 1) + '. ' + (entry.name || entry.streamUrl) + (entry.streamUrl === activeUrl ? '  (active)' : '');
+      var urlEl = document.createElement('div');
+      urlEl.className = 'small text-muted text-break';
+      urlEl.textContent = entry.streamUrl;
+      label.appendChild(nameEl);
+      label.appendChild(urlEl);
+      row.appendChild(label);
 
-      var loadBtn = document.createElement('button');
-      loadBtn.type = 'button';
-      loadBtn.className = 'er-btn er-btn-sm';
-      loadBtn.textContent = 'Load';
-      loadBtn.onclick = function () {
+      row.appendChild(erStationButton('er-btn-success', '<i class="fas fa-fw fa-play"></i>', 'Play this station now', function () {
+        erPlayStation(entry);
+      }));
+      row.appendChild(erStationButton('', 'Make Active', 'Copy into the active station fields above', function () {
         document.querySelector('input[name="customstream_name"]').value = entry.name;
         document.querySelector('input[name="customstream_streamUrl"]').value = entry.streamUrl;
         erMarkDirty();
-      };
-
-      var removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'er-btn er-btn-danger er-btn-sm';
-      removeBtn.innerHTML = '<i class="fas fa-fw fa-trash"></i>';
-      removeBtn.onclick = function () {
+        erRenderCustomstreamSaved();
+      }));
+      row.appendChild(erStationButton('er-btn-secondary', '<i class="fas fa-fw fa-pen"></i>', 'Edit', function () {
+        erStationEditIdx = idx;
+        document.getElementById('er-station-new-name').value = entry.name;
+        document.getElementById('er-station-new-url').value = entry.streamUrl;
+        document.getElementById('er-station-add-btn').innerHTML = '<i class="fas fa-fw fa-check"></i> Update Station';
+        document.getElementById('er-station-cancel-btn').style.display = '';
+        document.getElementById('er-station-new-name').focus();
+      }));
+      var up = erStationButton('er-btn-secondary', '<i class="fas fa-fw fa-arrow-up"></i>', 'Move up (earlier in the failover order)', function () {
+        erMoveStation(idx, -1);
+      });
+      up.disabled = (idx === 0);
+      row.appendChild(up);
+      var down = erStationButton('er-btn-secondary', '<i class="fas fa-fw fa-arrow-down"></i>', 'Move down', function () {
+        erMoveStation(idx, 1);
+      });
+      down.disabled = (idx === erCustomstreamSaved.length - 1);
+      row.appendChild(down);
+      row.appendChild(erStationButton('er-btn-danger', '<i class="fas fa-fw fa-trash"></i>', 'Remove', function () {
         erCustomstreamSaved.splice(idx, 1);
+        erCancelStationEdit();
         erRenderCustomstreamSaved();
         erMarkDirty();
-      };
-
-      row.appendChild(nameSpan);
-      row.appendChild(loadBtn);
-      row.appendChild(removeBtn);
+      }));
       container.appendChild(row);
     });
   }
 
-  function erSaveCurrentStation() {
-    var url = document.querySelector('input[name="customstream_streamUrl"]').value.trim();
-    if (!url) { erSetStatus('Enter a Stream URL first.'); return; }
-    var name = document.querySelector('input[name="customstream_name"]').value.trim();
-    erCustomstreamSaved.push({ name: name || url, streamUrl: url });
+  function erMoveStation(idx, delta) {
+    var to = idx + delta;
+    if (to < 0 || to >= erCustomstreamSaved.length) return;
+    var moved = erCustomstreamSaved.splice(idx, 1)[0];
+    erCustomstreamSaved.splice(to, 0, moved);
+    erCancelStationEdit();
     erRenderCustomstreamSaved();
     erMarkDirty();
   }
+
+  function erCancelStationEdit() {
+    erStationEditIdx = -1;
+    document.getElementById('er-station-new-name').value = '';
+    document.getElementById('er-station-new-url').value = '';
+    document.getElementById('er-station-add-btn').innerHTML = '<i class="fas fa-fw fa-plus"></i> Add Station';
+    document.getElementById('er-station-cancel-btn').style.display = 'none';
+  }
+
+  // Shared by the add/edit row and "Save Current as a Station"; returns
+  // false (with a status message) if the entry can't be stored.
+  function erStoreStation(name, url, editIdx) {
+    url = (url || '').trim();
+    if (!/^https?:\/\//i.test(url)) { erSetStatus('Enter a Stream URL starting with http:// or https://'); return false; }
+    name = erCleanStationName(name) || url;
+    if (erStationNameTaken(name, editIdx)) { erSetStatus('A station named "' + name + '" already exists - pick a different name.'); return false; }
+    if (editIdx >= 0) {
+      erCustomstreamSaved[editIdx] = { name: name, streamUrl: url };
+    } else {
+      erCustomstreamSaved.push({ name: name, streamUrl: url });
+    }
+    erRenderCustomstreamSaved();
+    erMarkDirty();
+    erSetStatus('Station "' + name + '" ' + (editIdx >= 0 ? 'updated' : 'added') + ' - click Save to keep it.');
+    return true;
+  }
+
+  function erAddOrUpdateStation() {
+    var ok = erStoreStation(document.getElementById('er-station-new-name').value,
+                            document.getElementById('er-station-new-url').value,
+                            erStationEditIdx);
+    if (ok) erCancelStationEdit();
+  }
+
+  function erSaveCurrentStation() {
+    erStoreStation(document.querySelector('input[name="customstream_name"]').value,
+                   document.querySelector('input[name="customstream_streamUrl"]').value,
+                   -1);
+  }
+
+  // Same path the Scheduler uses: FPP's "Encore Radio - Play Station"
+  // command. Saves first, since the command looks the name up in the
+  // saved config on disk, not in this page.
+  async function erPlayStation(entry) {
+    const name = entry.name || entry.streamUrl;
+    const saveResult = await erSave();
+    if (saveResult.status && saveResult.status !== 'OK') {
+      erSetStatus("Not started - save failed: " + (saveResult.message || saveResult.status));
+      return;
+    }
+    erSetStatus('Starting "' + name + '" - this can take a few seconds...');
+    const res = await fetch('/api/command/' + encodeURIComponent('Encore Radio - Play Station'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([name]),
+      cache: 'no-store'
+    });
+    if (!res.ok) {
+      erSetStatus('Error: could not dispatch Play Station (HTTP ' + res.status + ')');
+      return;
+    }
+    // The command made this the active station on disk - mirror that here
+    // so a later Save doesn't quietly switch it back.
+    document.querySelector('input[name="customstream_name"]').value = entry.name;
+    document.querySelector('input[name="customstream_streamUrl"]').value = entry.streamUrl;
+    const result = await erCheckPlaybackState(true);
+    erSetStatus(result.ok ? ('Playing: ' + name) : "Dispatched, but playback isn't showing as active - check plugin-fpp-EncoreRadio.log.");
+    erRenderCustomstreamSaved();
+  }
+
+  ['er-station-new-name', 'er-station-new-url'].forEach(function (id) {
+    document.getElementById(id).addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); erAddOrUpdateStation(); }
+    });
+  });
 
   erRenderCustomstreamSaved();
 

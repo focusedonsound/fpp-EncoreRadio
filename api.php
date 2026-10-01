@@ -16,7 +16,44 @@ function getEndpointsfppEncoreRadio() {
         'callback' => 'erHeaderIndicator');
     array_push($result, $ep);
 
+    $ep = array(
+        'method' => 'GET',
+        'endpoint' => 'stations',
+        'callback' => 'erStations');
+    array_push($result, $ep);
+
     return $result;
+}
+
+// GET /api/plugin/fpp-EncoreRadio/stations
+// Names of the Internet Radio stations (active + Saved Stations, de-duped
+// by URL, same order as the failover chain) - feeds the Station dropdown
+// on the "Encore Radio - Play Station" command.
+function erStations() {
+    $cfg = json_decode(@file_get_contents("/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json"), true);
+    $cs = (is_array($cfg) && is_array($cfg["customstream"] ?? null)) ? $cfg["customstream"] : array();
+
+    $chain = array(array("name" => $cs["name"] ?? "", "streamUrl" => $cs["streamUrl"] ?? ""));
+    if (is_array($cs["saved"] ?? null)) {
+        $chain = array_merge($chain, $cs["saved"]);
+    }
+
+    $names = array();
+    $seenUrls = array();
+    foreach ($chain as $e) {
+        $url = trim((string)($e["streamUrl"] ?? ""));
+        if ($url === "" || isset($seenUrls[$url])) {
+            continue;
+        }
+        $seenUrls[$url] = true;
+        $name = trim((string)($e["name"] ?? ""));
+        $name = $name !== "" ? $name : $url;
+        if (!in_array($name, $names, true)) {
+            $names[] = $name;
+        }
+    }
+
+    return json($names);
 }
 
 // GET /api/plugin/fpp-EncoreRadio/headerIndicator

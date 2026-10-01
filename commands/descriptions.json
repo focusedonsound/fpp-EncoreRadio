@@ -5,6 +5,22 @@
     "script": "er_cmd_start.sh"
   },
   {
+    "name": "Encore Radio - Play Station",
+    "description": "Play one of your named Internet Radio Saved Stations (switching over if something is already playing). Schedule different stations for different times - e.g. one during the day, another at night.",
+    "script": "er_cmd_play_station.sh",
+    "args": [
+      {
+        "name": "Station",
+        "description": "Station",
+        "help": "The name of an Internet Radio station saved on the Encore Radio page.",
+        "type": "string",
+        "optional": false,
+        "contentListUrl": "api/plugin/fpp-EncoreRadio/stations",
+        "allowBlanks": false
+      }
+    ]
+  },
+  {
     "name": "Encore Radio - Stop",
     "description": "Stop after-hours streaming and release the audio output.",
     "script": "er_cmd_stop.sh"

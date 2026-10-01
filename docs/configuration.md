@@ -41,6 +41,25 @@ Add these to FPP's own Scheduler (Content Setup > Scheduler):
 - **Encore Radio - Start** - begins playback of the configured source.
 - **Encore Radio - Stop** - stops playback (pauses Spotify via the Web API,
   kills the relay/ffplay for the custom stream/TuneIn/Pandora).
+- **Encore Radio - Play Station** - plays one named Internet Radio station,
+  picked from a *Station* dropdown listing your Saved Stations. Free. If
+  something is already playing it switches over, so you can schedule one
+  station for the day and another for the night:
+
+  | Scheduler entry | Command |
+  |---|---|
+  | 07:00 | Encore Radio - Play Station, Station = `Day Mix` |
+  | before the show | Encore Radio - Stop |
+  | after the show | Encore Radio - Play Station, Station = `Night Chill` |
+
+  The picked station becomes the active `customstream` (the same thing
+  clicking it on the page and saving does), so a later plain **Start**
+  keeps playing it, and failover to the other Saved Stations still
+  applies. It overrides the configured `source` and Rotation's pick at the
+  moment it runs, but if Rotation is enabled and its watchdog is already
+  running from an earlier Start, the next Rotation check can still swap
+  away - don't combine the two for the same time window. An unknown
+  station name is logged and leaves current playback alone.
 
 ## Spotify setup (premium)
 

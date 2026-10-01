@@ -115,15 +115,25 @@ if ($postedStreamUrl === "" || erIsHttpUrl($postedStreamUrl)) {
 // omits it entirely (a minimal forged POST, or a future partial-save call)
 // should never silently wipe the saved list to empty.
 if (isset($_POST["customstream_saved_json"])) {
+  // Names double as the "Encore Radio - Play Station" command's dropdown
+  // values, so they must be unique (case-insensitively, matching the
+  // command's lookup) and free of double quotes (FPP's command editor
+  // writes each value into a double-quoted HTML attribute). The page
+  // already enforces both; a later duplicate is dropped here as a backstop.
   $customstreamSaved = [];
+  $customstreamSeenNames = [];
   $customstreamSavedRaw = json_decode((string)$_POST["customstream_saved_json"], true);
   if (is_array($customstreamSavedRaw)) {
     foreach ($customstreamSavedRaw as $e) {
       if (!is_array($e)) continue;
       $url = trim((string)($e["streamUrl"] ?? ""));
       if ($url === "" || !erIsHttpUrl($url)) continue;
-      $name = trim((string)($e["name"] ?? ""));
-      $customstreamSaved[] = ["name" => ($name !== "" ? $name : $url), "streamUrl" => $url];
+      $name = trim(str_replace('"', '', (string)($e["name"] ?? "")));
+      $name = ($name !== "" ? $name : $url);
+      $nameKey = strtolower($name);
+      if (isset($customstreamSeenNames[$nameKey])) continue;
+      $customstreamSeenNames[$nameKey] = true;
+      $customstreamSaved[] = ["name" => $name, "streamUrl" => $url];
     }
   }
   $cfg["customstream"]["saved"] = $customstreamSaved;

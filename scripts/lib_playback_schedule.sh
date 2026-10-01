@@ -102,26 +102,66 @@ else:
 " 2>/dev/null
 }
 
+er_find_customstream_station() {
+    # $1 = station name, as picked on the "Encore Radio - Play Station"
+    # command. Searches the same list as the failover chain (active
+    # customstream + customstream.saved[]), matching case-insensitively
+    # on name (or on the URL itself, for an entry saved without a name).
+    # Prints the {"name":..., "streamUrl":...} JSON object for
+    # er_set_customstream_active, or "" if nothing matches.
+    WANT_NAME="$1" python3 -c "
+import json, os
+try:    cfg = json.load(open('$CFG_FILE'))
+except: cfg = {}
+cs = cfg.get('customstream', {})
+chain = [{'name': cs.get('name', ''), 'streamUrl': cs.get('streamUrl', '')}] + list(cs.get('saved', []))
+want = os.environ.get('WANT_NAME', '').strip().lower()
+for e in chain:
+    url = (e.get('streamUrl') or '').strip()
+    name = (e.get('name') or '').strip() or url
+    if url and want and want in (name.lower(), url.lower()):
+        print(json.dumps({'name': name, 'streamUrl': url}))
+        break
+" 2>/dev/null
+}
+
 er_set_customstream_active() {
     # $1 = JSON object {"name":..., "streamUrl":...} to make the new active
     # customstream station - persists the failover pick, same as premium
     # Fallback persisting its pick into state/active.json (this instead
     # writes into config, since customstream has no separate "which one is
     # active" field of its own to key off).
+    #
+    # This runs as root (fppd runs Commands as root), but the config is
+    # owned by fpp - the web UI (www/index.php, save.php, api.php) runs as
+    # fpp and must keep being able to read and write it. The replacement
+    # file therefore takes over the existing file's owner and mode instead
+    # of ending up root:root 0600, which locks the UI out of the config.
+    # Unchanged entries skip the write entirely.
     ENTRY_JSON="$1" python3 -c "
 import json, os
 entry = json.loads(os.environ['ENTRY_JSON'])
 try:    cfg = json.load(open('$CFG_FILE'))
 except: cfg = {}
-cfg.setdefault('customstream', {})
-cfg['customstream']['name'] = entry.get('name', '')
-cfg['customstream']['streamUrl'] = entry.get('streamUrl', '')
+cs = cfg.setdefault('customstream', {})
+name, url = entry.get('name', ''), entry.get('streamUrl', '')
+if cs.get('name') == name and cs.get('streamUrl') == url:
+    raise SystemExit(0)
+cs['name'] = name
+cs['streamUrl'] = url
+try:
+    st = os.stat('$CFG_FILE')
+    owner, mode = (st.st_uid, st.st_gid), st.st_mode & 0o777
+except OSError:
+    owner, mode = None, 0o600
 tmp = '$CFG_FILE.tmp'
 with open(tmp, 'w') as f:
     json.dump(cfg, f, indent=2)
     f.write('\n')
+os.chmod(tmp, mode)
+if owner is not None:
+    os.chown(tmp, *owner)
 os.replace(tmp, '$CFG_FILE')
-os.chmod('$CFG_FILE', 0o600)
 " 2>/dev/null
 }
 
