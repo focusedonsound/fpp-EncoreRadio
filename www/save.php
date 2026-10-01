@@ -28,6 +28,7 @@ function erDefaultConfig() {
     "source" => "",
     "relay" => ["port" => 8123],
     "volume" => 70,
+    "audioNormalize" => false,
     "customstream" => ["name" => "", "streamUrl" => "", "saved" => []],
     "netshare" => ["sharePath" => "", "username" => "", "password" => "", "folder" => ""],
     "rotation" => ["enabled" => false, "entries" => []],
@@ -87,6 +88,11 @@ $volume = isset($_POST["volume"]) ? (int)$_POST["volume"] : $cfg["volume"];
 if ($volume < 0) $volume = 0;
 if ($volume > 100) $volume = 100;
 $cfg["volume"] = $volume;
+// Applied by scripts/er_relay.sh (ffmpeg -af dynaudnorm) on the NEXT
+// relay start, same as every other source/config change here except
+// volume itself (issue #4) - toggling it doesn't restart anything
+// already playing.
+$cfg["audioNormalize"] = isset($_POST["audioNormalize"]) && $_POST["audioNormalize"] === "1";
 
 // Only http(s) - these values reach `ffmpeg -i` (scripts/backends/
 // customstream_stream.sh), which treats its argument as a protocol

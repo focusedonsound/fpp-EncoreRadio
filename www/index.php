@@ -487,8 +487,14 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
             <td style="padding:8px;">
               <input type="range" class="form-range" style="max-width:400px;" name="volume" id="er-volume" min="0" max="100" step="1"
                      value="<?php echo (int)$cfg["volume"]; ?>"
-                     oninput="document.getElementById('er-volume-label').textContent = this.value; erApplyVolumeDebounced(this.value);" />
+                     oninput="erVolumeInput(event)" onchange="event.stopPropagation()" />
               <span id="er-volume-label"><?php echo (int)$cfg["volume"]; ?></span>%
+              <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" name="audioNormalize" id="er-audio-normalize" value="1" <?php echo $cfg["audioNormalize"] ? "checked" : ""; ?> onchange="erMarkDirty()" />
+                <label class="form-check-label small" for="er-audio-normalize">
+                  Normalize loudness across stations (evens out volume differences between stations/streams; uses a bit more CPU). Takes effect on the next Start or station switch - click Save, then restart playback.
+                </label>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -1211,6 +1217,21 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       fd.append('volume', value);
       fetch(erUrl('set_volume.php'), { method: 'POST', body: fd, cache: 'no-store' }).catch(function () {});
     }, 300);
+  }
+
+  // The slider already self-saves (above), so it must not also trip the
+  // form-wide "unsaved changes" banner the way every other field does
+  // (erForm's own 'input'/'change' listeners, below) - that would be
+  // actively misleading once the value is already persisted.
+  // stopPropagation keeps this field's events from ever reaching those
+  // form-level listeners in the first place, rather than calling
+  // erMarkClean() afterward, which would also wrongly hide the banner for
+  // any OTHER field still genuinely unsaved (the banner is one flag for
+  // the whole form, not tracked per field).
+  function erVolumeInput(ev) {
+    document.getElementById('er-volume-label').textContent = ev.target.value;
+    erApplyVolumeDebounced(ev.target.value);
+    ev.stopPropagation();
   }
 
   async function erSave() {

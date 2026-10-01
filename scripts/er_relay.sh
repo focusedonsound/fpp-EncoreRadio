@@ -26,6 +26,25 @@ mkdir -p "$STATE_DIR" 2>/dev/null || true
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [er_relay] $*" >> "$LOG_FILE"; }
 
+audio_normalize_enabled() {
+    [[ -f "$CFG_FILE" ]] || return 1
+    # sys.exit() inside the try below, caught by a bare except, would catch
+    # its own SystemExit (it's a BaseException, not an Exception - a bare
+    # except catches it too) and silently turn a successful 0 into 1 every
+    # time. Confirmed on real hardware: this exact bug made the option
+    # permanently inert regardless of the config value. Compute the result
+    # first, call sys.exit() once, outside any try/except.
+    python3 -c "
+import json, sys
+enabled = False
+try:
+    enabled = bool(json.load(open('$CFG_FILE')).get('audioNormalize', False))
+except Exception:
+    pass
+sys.exit(0 if enabled else 1)
+" 2>/dev/null
+}
+
 relay_port() {
     if [[ -f "$CFG_FILE" ]]; then
         python3 -c "
@@ -88,10 +107,20 @@ do_start() {
             ;;
     esac
 
-    log "START relay mode=$mode src=$src port=$port"
+    # Opt-in (off by default - real CPU cost on the low-end boards
+    # minMemoryMB/minCpuCores already exist to protect): internet radio/
+    # Pandora/custom streams aren't mastered to a common loudness target,
+    # so the same configured volume still sounds different station to
+    # station. dynaudnorm rather than the two-pass loudnorm filter - this
+    # is a live, unbounded stream with no second pass to analyze, and
+    # dynaudnorm is built for exactly that (single-pass, frame-local).
+    local af_args=()
+    audio_normalize_enabled && af_args=(-af dynaudnorm)
+
+    log "START relay mode=$mode src=$src port=$port normalize=$([[ ${#af_args[@]} -gt 0 ]] && echo on || echo off)"
     nohup ffmpeg -hide_banner -loglevel warning \
         "${input_args[@]}" \
-        -vn -acodec libmp3lame -b:a 128k -content_type audio/mpeg \
+        -vn "${af_args[@]}" -acodec libmp3lame -b:a 128k -content_type audio/mpeg \
         -f mp3 -listen 1 "http://127.0.0.1:${port}/stream" \
         >> "$LOG_FILE" 2>&1 &
     local relay_pid=$!

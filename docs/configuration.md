@@ -10,6 +10,7 @@ separately, in `trial_state.json` in the same directory - see the
 |---|---|
 | `source` | `customstream`, `netshare`, `tunein`, `pandora`, or `spotify` |
 | `volume` | 0-100, applied to whichever source is playing |
+| `audioNormalize` | Off by default. Evens out loudness differences between stations/streams (ffmpeg `dynaudnorm`), at some CPU cost. Takes effect on the next Start or station switch, not live. |
 | `relay.port` | Local port the custom-stream/network-share/TuneIn/Pandora relay listens on (default 8123) |
 | `customstream.name` / `streamUrl` | A directly-typed internet radio stream URL and label - this is the *active* one, what actually plays when `source` is `customstream` |
 | `customstream.saved` | Free - array of `{name, streamUrl}` presets the operator can save and reload into `customstream.name`/`streamUrl` from the page. Also doubles as the automatic Internet Radio failover chain: whenever `source` is `customstream` and 2+ distinct stations are configured (active + saved), a background watchdog advances to the next one in the list (wrapping around) if the current stream dies, updating `customstream.name`/`streamUrl` to match. Not gated by license/premium. |
