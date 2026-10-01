@@ -106,6 +106,21 @@ install_pkgs_if_missing() {
   local pulse_server_pkg="pulseaudio"
   pipewire_present && pulse_server_pkg="pipewire-pulse"
   local pkgs=(ffmpeg pianobar "$pulse_server_pkg" pulseaudio-utils libasound2-plugins curl python3 jq smbclient)
+  if pipewire_present; then
+    # Repair, not just prevent: a box that was hit by the real-pulseaudio
+    # conflict above BEFORE this plugin fixed it (issue #5 - reported by a
+    # real user) is still sitting there with pipewire-alsa missing today.
+    # Nothing currently installed makes that obvious - PipeWire itself,
+    # fppd, and this plugin's own pipewire-pulse bridge all keep working
+    # fine; only ALSA-via-PipeWire clients silently break. Since this is a
+    # straight dpkg -s check feeding the SAME install step below, repair
+    # is just "ask for it every run" - a no-op once it's actually present.
+    # pipewire-audio-client-libraries has zero files of its own (confirmed
+    # on real hardware: `dpkg -L` lists only its own doc/changelog) - it's
+    # a transitional package that just depends on pipewire-alsa, included
+    # here to leave dpkg's own state clean, not because it does anything.
+    pkgs+=(pipewire-alsa pipewire-audio-client-libraries)
+  fi
 
   for p in "${pkgs[@]}"; do
     # `dpkg -s` exits 0 as long as dpkg has ANY record of the package,
@@ -124,7 +139,7 @@ install_pkgs_if_missing() {
   done
 
   if [[ "$missing" -eq 1 ]]; then
-    log "Installing required packages (ffmpeg, pianobar, ${pulse_server_pkg}, curl, python3, jq, smbclient)…"
+    log "Installing required packages: ${pkgs[*]}…"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
     # DEBIAN_FRONTEND only silences debconf; it does nothing for dpkg's own
