@@ -26,11 +26,20 @@ except: print(8123)
 }
 
 URL="http://127.0.0.1:$(relay_port)/stream"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null; then
     kill "$(cat "$PID_FILE")" 2>/dev/null || true
     sleep 0.5
 fi
+
+# Best-effort, before audio starts flowing: works around a real FPP core
+# PipeWire routing bug (fppd's own graph can leave the hardware sink
+# permanently unlinked, especially after a reboot - see
+# er_repair_pipewire_sink_link.sh), not anything in this plugin. A cheap
+# no-op on a healthy box; never fatal to Start if it fails or finds
+# nothing to fix.
+bash "${HERE}/er_repair_pipewire_sink_link.sh" || true
 
 log "Playing via ffplay into PulseAudio: $URL"
 # ffplay has no -ao flag (that's mpv/mplayer) - it outputs through SDL,
@@ -46,6 +55,5 @@ log "ffplay started pid=$FFPLAY_PID"
 # #4 - a slow-to-connect stream could outlast the old 5s inline poll and
 # silently leave volume unset). Backgrounding it means that longer poll
 # costs nothing on Start's own response time.
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 nohup bash "${HERE}/er_apply_volume.sh" >> "$LOG_FILE" 2>&1 &
 disown 2>/dev/null || true
