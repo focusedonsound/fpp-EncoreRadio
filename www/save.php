@@ -310,4 +310,11 @@ curl_setopt_array($ch, [
 @curl_exec($ch);
 curl_close($ch);
 
+// Apply the saved volume live if something's currently playing (issue #4
+// - it used to only take effect on the next restart). Same backgrounded
+// call as www/set_volume.php's own live-apply; see er_apply_volume.sh.
+$scriptsDir = dirname(__DIR__) . '/scripts';
+exec('nohup bash ' . escapeshellarg("{$scriptsDir}/er_apply_volume.sh") . ' ' . escapeshellarg((string)$volume)
+    . ' > /dev/null 2>&1 &');
+
 erRespond(true, "Saved.");

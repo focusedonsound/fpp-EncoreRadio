@@ -487,7 +487,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
             <td style="padding:8px;">
               <input type="range" class="form-range" style="max-width:400px;" name="volume" id="er-volume" min="0" max="100" step="1"
                      value="<?php echo (int)$cfg["volume"]; ?>"
-                     oninput="document.getElementById('er-volume-label').textContent = this.value" />
+                     oninput="document.getElementById('er-volume-label').textContent = this.value; erApplyVolumeDebounced(this.value);" />
               <span id="er-volume-label"><?php echo (int)$cfg["volume"]; ?></span>%
             </td>
           </tr>
@@ -1194,6 +1194,23 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     } else {
       statusEl.textContent = j.message || "Something went wrong.";
     }
+  }
+
+  // Dragging the volume slider applies it live (issue #4 - it used to
+  // only take effect on the next restart) without needing a full Save:
+  // debounced so a fast drag doesn't fire a request per tick, posted to
+  // a narrow dedicated endpoint (not erSave()) so it can't race a
+  // concurrent full Save and clobber other fields with a stale snapshot.
+  // Persists too, so the dragged value survives a page reload even
+  // without clicking Save.
+  var erVolumeDebounceTimer = null;
+  function erApplyVolumeDebounced(value) {
+    clearTimeout(erVolumeDebounceTimer);
+    erVolumeDebounceTimer = setTimeout(function () {
+      var fd = new FormData();
+      fd.append('volume', value);
+      fetch(erUrl('set_volume.php'), { method: 'POST', body: fd, cache: 'no-store' }).catch(function () {});
+    }, 300);
   }
 
   async function erSave() {

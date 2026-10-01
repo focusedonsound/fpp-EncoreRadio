@@ -41,32 +41,11 @@ FFPLAY_PID=$!
 echo "$FFPLAY_PID" > "$PID_FILE"
 log "ffplay started pid=$FFPLAY_PID"
 
-VOLUME="$(python3 -c "
-import json
-try:    print(int(json.load(open('$CFG_FILE')).get('volume', 70)))
-except: print(70)
-" 2>/dev/null || echo 70)"
-
-# ffplay's sink-input doesn't exist until PulseAudio has actually connected
-# it - poll briefly rather than assuming a fixed delay is enough.
-for _ in $(seq 1 20); do
-    SINK_IDX="$(pactl -f json list sink-inputs 2>/dev/null | python3 -c "
-import json, sys
-try:
-    for si in json.load(sys.stdin):
-        if str(si.get('properties', {}).get('application.process.id', '')) == '$FFPLAY_PID':
-            print(si['index'])
-            break
-except Exception:
-    pass
-" 2>/dev/null)"
-    [[ -n "$SINK_IDX" ]] && break
-    sleep 0.25
-done
-
-if [[ -n "$SINK_IDX" ]]; then
-    pactl set-sink-input-volume "$SINK_IDX" "${VOLUME}%" 2>/dev/null || true
-    log "Set volume to ${VOLUME}%"
-else
-    log "WARNING: could not find ffplay's sink-input to set volume (it may still be at PulseAudio's default)"
-fi
+# Backgrounded: er_apply_volume.sh polls for up to 15s for the sink-input
+# to actually register, which used to be an inline wait right here (issue
+# #4 - a slow-to-connect stream could outlast the old 5s inline poll and
+# silently leave volume unset). Backgrounding it means that longer poll
+# costs nothing on Start's own response time.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+nohup bash "${HERE}/er_apply_volume.sh" >> "$LOG_FILE" 2>&1 &
+disown 2>/dev/null || true
