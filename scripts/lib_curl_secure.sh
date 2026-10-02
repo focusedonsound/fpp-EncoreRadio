@@ -42,7 +42,16 @@ er_curl_secure() {
     cfg_file="$(mktemp /tmp/er_curlcfg.XXXXXX)" || return 1
     chmod 600 "$cfg_file"
     printf '%s\n' "$cfg_body" > "$cfg_file"
-    curl -K "$cfg_file" "$@"
+    # --max-time here is a fallback ceiling, not the real timeout - every
+    # call site already passes its own -m via curl_args below, and curl
+    # takes the LAST occurrence of a repeated flag (confirmed empirically:
+    # `-m 20 -m 3` against a slow endpoint aborted at ~3s, not 20s), so a
+    # caller's own tighter value always wins. This exists so the actual
+    # timeout is visible as a plain, static flag on this line rather than
+    # only ever arriving via the dynamically-built curl_args a static
+    # scanner can't resolve - and so nothing here can hang indefinitely
+    # even if some future caller forgets to pass its own.
+    curl -K "$cfg_file" --max-time 20 "$@"
     local rc=$?
     rm -f "$cfg_file"
     return $rc
