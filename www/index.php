@@ -211,18 +211,20 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
   <div class="fppTableContents">
     <table class="fppSelectableRowTable" style="width:100%;">
       <thead>
-        <tr><th style="padding:10px 8px;"><span style="font-size:1.25rem;">📻 Keep the Music Going — Sign Up Free</span></th></tr>
+        <tr><th style="padding:12px 8px;"><span style="font-size:1.4rem;">📻 Sign Up &amp; Keep the Music Going</span></th></tr>
       </thead>
       <tbody>
         <tr><td style="padding:8px;">
-          <p class="text-muted mb-0">
-            Pandora and Spotify include a free 10-hour trial - just pick
-            one as your source below, nothing to sign up for first.
-            Want an email reminder before it runs out?
-            <a href="https://www.christmasinboontontwp.com/encore-radio-signup" target="_blank" rel="noopener">Sign up on our site</a>
-            (opens in a new tab) - entirely optional, and never required
-            to use the trial or any free source.
+          <p class="text-muted mb-2">
+            Pandora and Spotify include a free 10-hour trial - choose a
+            source below and get started, nothing to sign up for first.
           </p>
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <a href="https://www.christmasinboontontwp.com/encore-radio-signup" target="_blank" rel="noopener" class="er-btn">
+              <i class="fas fa-fw fa-bell"></i> Sign Up Today
+            </a>
+            <span class="text-muted small">for a reminder before your trial runs out - optional, takes 10 seconds.</span>
+          </div>
         </td></tr>
       </tbody>
     </table>
