@@ -76,8 +76,71 @@ pulse_bridge_alive() {
   timeout 3 env PULSE_SERVER=unix:/run/pulse/native pactl info >/dev/null 2>&1
 }
 
+# Installs only whatever's actually missing from $1 (a package-name array,
+# passed by name via nameref), as its own apt-get call - never bundled with
+# any OTHER package list. Bundling matters: apt-get install on a batch
+# where even ONE package is missing also upgrades every OTHER package in
+# that SAME invocation that has a newer version available, even packages
+# that were already installed and didn't need touching at all. Confirmed
+# via a real install's own apt history: installing the pipewire-alsa repair
+# (conditionally missing) alongside the always-needed ffmpeg/curl/jq/etc.
+# in one apt-get call silently upgraded curl, jq, libcurl4t64 and others
+# that were already present and not actually missing - a plugin install
+# changing package versions FPP itself ships, underneath it, for no reason
+# tied to what was actually missing. Keeping each logical package group in
+# its own call means a conditional-only gap (e.g. just pipewire-alsa) never
+# drags unrelated already-installed packages along for the ride. `apt-get
+# update` is similarly scoped to "did THIS call's list actually need it" -
+# never paid for on a call where nothing in it is missing.
+install_pkg_batch_if_missing() {
+  local -n pkgs_ref="$1"
+  local missing=0 p
+  for p in "${pkgs_ref[@]}"; do
+    # `dpkg -s` exits 0 as long as dpkg has ANY record of the package,
+    # including "deinstall ok config-files" (removed, config left behind)
+    # - found on real hardware: pulseaudio was in exactly that state on an
+    # FPP 10.x/PipeWire box (removed in favor of pipewire-pulse at some
+    # point), and this check's exit-code-only test treated it as present,
+    # so encoreradio-pulse.service failed with status=203/EXEC (no
+    # /usr/bin/pulseaudio binary at all) instead of ever attempting the
+    # install. Match the actual "installed" status line, not just dpkg
+    # having heard of the package.
+    if ! dpkg -s "$p" 2>/dev/null | grep -q '^Status: install ok installed$'; then
+      missing=1
+      break
+    fi
+  done
+
+  if [[ "$missing" -eq 1 ]]; then
+    log "Installing required packages: ${pkgs_ref[*]}…"
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y
+    # DEBIAN_FRONTEND only silences debconf; it does nothing for dpkg's own
+    # conffile prompt. Any apt-get run also tries to finish configuring
+    # whatever OTHER package is left half-installed on the box (seen on real
+    # hardware: a stale /etc/mpd.conf from an unrelated package), and with no
+    # TTY to answer that prompt dpkg errors out and apt-get exit-100s on
+    # every package in this list, including ones already installed. Force
+    # the conffile decision so a foreign package's leftover prompt can never
+    # block this plugin's own install.
+    apt-get install -y --no-install-recommends \
+      -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
+      "${pkgs_ref[@]}"
+  else
+    log "Required packages (${pkgs_ref[*]}) already installed."
+  fi
+}
+
 install_pkgs_if_missing() {
-  local missing=0
+  # Static list, also declared in pluginInfo.json's dependencies.packages -
+  # on a current FPP 10 install/update through the Plugin Manager, FPP's
+  # own dependency-resolution step (ResolvePluginDependencies(), run before
+  # fpp_install.sh even starts) already installs exactly what's missing
+  # from this list, making this call a no-op there. Kept here anyway,
+  # unconditionally, for FPP 9.x (predates that mechanism entirely) and for
+  # running this script directly - both real, supported paths, not just a
+  # redundant safety net.
+  #
   # ffmpeg: local relay + TuneIn/Pandora re-streaming
   # pianobar: headless Pandora client (premium-tier backend)
   # pulseaudio-utils/libasound2-plugins: pactl + the ALSA pulse-protocol
@@ -85,6 +148,13 @@ install_pkgs_if_missing() {
   # jq/python3: JSON config helpers, matches AA's convention
   # smbclient: reads the Network Share (SMB) source through a user-space
   # client, not a kernel mount - see netshare_folder.sh for why.
+  local static_pkgs=(ffmpeg pianobar pulseaudio-utils libasound2-plugins curl python3 jq smbclient)
+  install_pkg_batch_if_missing static_pkgs
+
+  # Audio-backend choice, decided at runtime rather than declared
+  # statically - this is the part that genuinely can't live in
+  # pluginInfo.json's dependencies.packages, and the only reason this
+  # script still runs its own apt-get at all beyond the static list above.
   #
   # The actual PulseAudio-protocol SERVER differs by box:
   #   - FPP 9.x/no PipeWire: nothing provides one by default (confirmed on
@@ -105,7 +175,7 @@ install_pkgs_if_missing() {
   #     PipeWire graph. See setup_system_pulseaudio_if_needed().
   local pulse_server_pkg="pulseaudio"
   pipewire_present && pulse_server_pkg="pipewire-pulse"
-  local pkgs=(ffmpeg pianobar "$pulse_server_pkg" pulseaudio-utils libasound2-plugins curl python3 jq smbclient)
+  local audio_pkgs=("$pulse_server_pkg")
   if pipewire_present; then
     # Repair, not just prevent: a box that was hit by the real-pulseaudio
     # conflict above BEFORE this plugin fixed it (issue #5 - reported by a
@@ -119,43 +189,9 @@ install_pkgs_if_missing() {
     # on real hardware: `dpkg -L` lists only its own doc/changelog) - it's
     # a transitional package that just depends on pipewire-alsa, included
     # here to leave dpkg's own state clean, not because it does anything.
-    pkgs+=(pipewire-alsa pipewire-audio-client-libraries)
+    audio_pkgs+=(pipewire-alsa pipewire-audio-client-libraries)
   fi
-
-  for p in "${pkgs[@]}"; do
-    # `dpkg -s` exits 0 as long as dpkg has ANY record of the package,
-    # including "deinstall ok config-files" (removed, config left behind)
-    # - found on real hardware: pulseaudio was in exactly that state on an
-    # FPP 10.x/PipeWire box (removed in favor of pipewire-pulse at some
-    # point), and this check's exit-code-only test treated it as present,
-    # so encoreradio-pulse.service failed with status=203/EXEC (no
-    # /usr/bin/pulseaudio binary at all) instead of ever attempting the
-    # install. Match the actual "installed" status line, not just dpkg
-    # having heard of the package.
-    if ! dpkg -s "$p" 2>/dev/null | grep -q '^Status: install ok installed$'; then
-      missing=1
-      break
-    fi
-  done
-
-  if [[ "$missing" -eq 1 ]]; then
-    log "Installing required packages: ${pkgs[*]}…"
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update -y
-    # DEBIAN_FRONTEND only silences debconf; it does nothing for dpkg's own
-    # conffile prompt. Any apt-get run also tries to finish configuring
-    # whatever OTHER package is left half-installed on the box (seen on real
-    # hardware: a stale /etc/mpd.conf from an unrelated package), and with no
-    # TTY to answer that prompt dpkg errors out and apt-get exit-100s on
-    # every package in this list, including ones already installed. Force
-    # the conffile decision so a foreign package's leftover prompt can never
-    # block this plugin's own install.
-    apt-get install -y --no-install-recommends \
-      -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
-      "${pkgs[@]}"
-  else
-    log "Required packages already installed."
-  fi
+  install_pkg_batch_if_missing audio_pkgs
 }
 
 # Split out of install_raspotify_if_needed() so it always runs, even when
