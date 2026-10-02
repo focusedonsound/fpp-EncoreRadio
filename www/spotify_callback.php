@@ -14,6 +14,7 @@ declare(strict_types=1);
 define("ER_SPOTIFY_FIXED_REDIRECT_URI", "https://encoreradio-license.nscilingo.workers.dev/spotify/callback");
 
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
+require_once __DIR__ . "/er_config_lock.php";
 
 function erRenderResult(bool $ok, string $message): void {
   $color = $ok ? "#2a7" : "#c33";
@@ -69,6 +70,18 @@ if ($httpCode !== 200 || !is_array($data) || empty($data["access_token"])) {
   erRenderResult(false, "Token exchange failed: " . (is_array($data) ? ($data["error_description"] ?? $response) : $response));
 }
 
+// Lock + re-read fresh here, not reuse of the $cfg read before the token
+// exchange above - that exchange is a real network round trip (up to the
+// 10s CURLOPT_TIMEOUT), plenty of time for a concurrent save.php to have
+// written a change this request would otherwise clobber with a now-stale
+// snapshot.
+$lock = erConfigLockAuto($configFile);
+$cfg = [];
+if (file_exists($configFile)) {
+  $j = json_decode(@file_get_contents($configFile), true);
+  if (is_array($j)) $cfg = $j;
+}
+
 $cfg["spotify"]["accessToken"] = $data["access_token"];
 $cfg["spotify"]["refreshToken"] = $data["refresh_token"] ?? ($cfg["spotify"]["refreshToken"] ?? "");
 $cfg["spotify"]["tokenExpiresAt"] = time() + (int)($data["expires_in"] ?? 3600);
@@ -76,8 +89,10 @@ $cfg["spotify"]["tokenExpiresAt"] = time() + (int)($data["expires_in"] ?? 3600);
 $tmp = $configFile . ".tmp";
 if (@file_put_contents($tmp, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n") === false
     || !@rename($tmp, $configFile)) {
+  erConfigUnlock($lock);
   erRenderResult(false, "Got tokens from Spotify but failed to save them to config.");
 }
 @chmod($configFile, 0600);
+erConfigUnlock($lock);
 
 erRenderResult(true, "Your Spotify account is now connected. You can search and pick a playlist on the Encore Radio page. Don't forget the separate one-time step of pairing the Raspotify Connect device via your phone's Spotify app if you haven't already.");

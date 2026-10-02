@@ -19,6 +19,7 @@ header('Cache-Control: no-store');
 $licenseServerBase = "https://encoreradio-license.nscilingo.workers.dev/api";
 
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
+require_once __DIR__ . "/er_config_lock.php";
 
 function erRespond($ok, $msg) {
   echo json_encode(["status" => $ok ? "OK" : "ERROR", "message" => $msg]);
@@ -35,6 +36,8 @@ if ($email === "" || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
   erRespond(false, "Enter a valid email address first.");
 }
 
+$lock = erConfigLockAuto($configFile);
+
 $cfg = [];
 if (file_exists($configFile)) {
   $j = json_decode(@file_get_contents($configFile), true);
@@ -48,6 +51,11 @@ $tmp = $configFile . ".tmp";
 @file_put_contents($tmp, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
 @rename($tmp, $configFile);
 @chmod($configFile, 0600);
+
+// Released explicitly rather than left to the shutdown-function backstop -
+// the network call just below is best-effort and can take the full curl
+// timeout; the lock must not be held across it.
+erConfigUnlock($lock);
 
 // Best-effort: the local save above already succeeded regardless of
 // whether this reaches the server or times out.

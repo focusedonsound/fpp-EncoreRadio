@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
+require_once __DIR__ . "/er_config_lock.php";
+$lock = erConfigLockAuto($configFile);
 
 $cfg = [];
 if (file_exists($configFile)) {
@@ -22,9 +24,11 @@ $cfg["ui"]["onboardingSeen"] = true;
 $tmp = $configFile . ".tmp";
 if (@file_put_contents($tmp, json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n") === false
     || !@rename($tmp, $configFile)) {
+  erConfigUnlock($lock);
   echo json_encode(["status" => "ERROR", "message" => "Failed to save"]);
   exit;
 }
 @chmod($configFile, 0600);
+erConfigUnlock($lock);
 
 echo json_encode(["status" => "OK"]);

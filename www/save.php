@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
+require_once __DIR__ . "/er_config_lock.php";
 
 function erRespond($ok, $msg, $extra = []) {
   echo json_encode(array_merge([
@@ -49,6 +50,13 @@ if (!is_dir($dir)) {
 if (!is_writable($dir)) {
   erRespond(false, "Config directory not writable: $dir");
 }
+
+// Held across the whole read-merge-write below (not just the final
+// rename) - this form has ~a dozen independent $_POST fields merged into
+// $cfg one at a time, and any of save.php's own early erRespond() exits
+// partway through that run against a concurrent writer (set_volume.php's
+// live-apply, or another save.php submission) without the lock.
+$lock = erConfigLockAuto($configFile);
 
 $cfg = erDefaultConfig();
 if (file_exists($configFile)) {
@@ -293,13 +301,20 @@ if (isset($_POST["announce_times"])) {
 $tmp = $configFile . ".tmp";
 $data = json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n";
 if (@file_put_contents($tmp, $data) === false) {
+  erConfigUnlock($lock);
   erRespond(false, "Failed to write temp config: $tmp");
 }
 if (!@rename($tmp, $configFile)) {
   @unlink($tmp);
+  erConfigUnlock($lock);
   erRespond(false, "Failed to replace config file: $configFile");
 }
 @chmod($configFile, 0600);
+// Released explicitly here rather than left to the shutdown-function
+// backstop - the Spotify-sync dispatch just below is a network call
+// (loopback, but still a round trip) and must not hold the config lock
+// across it.
+erConfigUnlock($lock);
 
 // Fire-and-forget: only Raspotify's enabled/running state depends on this
 // (see scripts/er_sync_spotify_service.sh for why it can't just be set
