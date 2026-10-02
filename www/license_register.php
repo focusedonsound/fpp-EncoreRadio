@@ -70,4 +70,4 @@ curl_setopt_array($ch, [
 @curl_exec($ch);
 curl_close($ch);
 
-erRespond(true, "Saved! We'll send a welcome email, and a couple of check-ins over the next two weeks if you haven't gotten a license key by then.");
+erRespond(true, "Saved! A welcome email is on its way, with reminder emails over the next two weeks if you haven't entered a license key by then.");

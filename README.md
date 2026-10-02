@@ -19,8 +19,8 @@ Set it up once, and it runs itself every night on your own FPP schedule.
 - **A real internet radio station**, TuneIn included, free.
 - **Source Fallback, free too** — if one source has a bad night, Encore
   Radio quietly recovers to the next one in line. The music doesn't stop.
-- **Go premium for Pandora and Spotify** — your own curated stations and
-  playlists, not just a fixed stream.
+- **Pandora and Spotify, with a license key** — your own curated stations
+  and playlists, not just a fixed stream.
 - **Source Rotation (premium)** — a different station or playlist
   depending on the night or the hour. Upbeat for the early crowd, mellow
   after the kids are in bed, something different on weekends.
@@ -42,7 +42,7 @@ Set it up once, and it runs itself every night on your own FPP schedule.
 | Announcement Assistant integration | ✅ | ✅ |
 
 Try any premium feature free for 10 hours of real playback. After that,
-a license key unlocks it for the year.
+a license key unlocks it.
 
 ## Getting started
 
@@ -71,9 +71,7 @@ first.
 ## License
 
 Free for personal, hobbyist, and noncommercial use under the
-[PolyForm Noncommercial License 1.0.0](LICENSE). Using this in a
-commercial or paid-event display? Contact
-license.request@christmasinboontontwp.com for a commercial license.
+[PolyForm Noncommercial License 1.0.0](LICENSE).
 
 ---
 

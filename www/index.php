@@ -203,19 +203,16 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       <tbody>
         <tr><td style="padding:8px;">
           <?php if ($registered): ?>
-            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Pandora, Spotify, and Source Rotation are unlocked below.</p>
+            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:var(--bs-success, #198754);"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Pandora, Spotify, and Source Rotation are unlocked below.</p>
           <?php else: ?>
             <p class="text-muted">
-              Encore Radio is built to be your one solution for keeping
-              the music going after the show ends - and we're actively
-              adding new features to keep your station running all day,
-              not just after hours. Register your email to unlock
-              Pandora, Spotify, and Source Rotation, get a welcome note
-              now, and a few check-ins over the next couple weeks if you
-              haven't picked up a license by then (stops automatically
-              once you have one). TuneIn, custom stream, network share,
-              and Source Fallback stay free either way - only this
-              address ever gets sent, never usage data.
+              Register your email to unlock Pandora, Spotify, and Source
+              Rotation. You'll get one welcome email now, and reminder
+              emails over the next couple weeks if you haven't entered a
+              license key by then (these stop automatically once you
+              have one). TuneIn, custom stream, network share, and
+              Source Fallback stay free either way - only this address
+              ever gets sent, never usage data.
             </p>
             <div class="d-flex gap-2 align-items-center flex-wrap">
               <input type="email" class="form-control form-control-sm" id="er-signup-email" placeholder="you@example.com" style="width:100%; max-width:320px;" />
