@@ -144,17 +144,24 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   box-shadow: 0 0 0 4000px rgba(0,0,0,0.45);
   transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s;
 }
+/* var()'s fallback (the second argument) covers FPP 9.x/Bootstrap 4,
+   which never defines --bs-body-bg/--bs-body-color - renders identically
+   to the old hardcoded #fff/#212529 there. On FPP 10.x/Bootstrap 5 with
+   [data-bs-theme="dark"] set (see fpp-dark.css), these resolve to the
+   real dark surface/text colors instead of a stark white popup glued
+   onto an otherwise-dark page. */
 #er-tour-popup {
   position: fixed; z-index: 10051; max-width: 340px; width: calc(100% - 24px);
-  background-color: #fff; color: #212529; border: 1px solid #1a6eb5; border-radius: .4rem;
+  background-color: var(--bs-body-bg, #fff); color: var(--bs-body-color, #212529);
+  border: 1px solid #1a6eb5; border-radius: .4rem;
   box-shadow: 0 .5rem 1rem rgba(0,0,0,.35);
 }
 #er-tour-arrow {
   position: fixed; z-index: 10051; width: 0; height: 0;
   border-left: 9px solid transparent; border-right: 9px solid transparent;
 }
-.er-tour-arrow-below { border-top: 9px solid #fff; }
-.er-tour-arrow-above { border-bottom: 9px solid #fff; }
+.er-tour-arrow-below { border-top: 9px solid var(--bs-body-bg, #fff); }
+.er-tour-arrow-above { border-bottom: 9px solid var(--bs-body-bg, #fff); }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-2 er-page-header">
