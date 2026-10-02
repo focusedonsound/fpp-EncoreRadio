@@ -23,7 +23,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SINK_NAME="encoreradio_pandora"
 PIANOBAR_CTL="${STATE_DIR}/pianobar.fifo"
 PIANOBAR_PID="${STATE_DIR}/pianobar.pid"
-PIANOBAR_HOME="${STATE_DIR}/pianobar_home"
+# Under plugindata/, not state/ - this is a plaintext Pandora password
+# (pianobar's config format has no secret-redaction of its own), and
+# §14.11 puts credential-bearing files under plugindata/<repoName>/,
+# same as encoreradio.json itself, not state/.
+PIANOBAR_HOME="/home/fpp/media/plugindata/fpp-EncoreRadio/pianobar_home"
 
 mkdir -p "$STATE_DIR" "$PIANOBAR_HOME/.config/pianobar" 2>/dev/null || true
 
@@ -92,6 +96,12 @@ if [[ -n "$STATION_ID" ]]; then
     echo "autostart_station = ${STATION_ID}" >> "${PIANOBAR_HOME}/.config/pianobar/config"
 fi
 chmod 600 "${PIANOBAR_HOME}/.config/pianobar/config"
+# This script runs as root (FPP Command dispatch), so the file above and
+# the directories mkdir -p just created are root-owned by default - same
+# reasoning as the descriptions.json hash file in fpp_install.sh: left
+# root-owned, a remote backup/rsync running as fpp can't read it, and the
+# rest of plugindata/fpp-EncoreRadio/ is fpp:fpp throughout.
+chown -R fpp:fpp "$PIANOBAR_HOME" 2>/dev/null || true
 
 ensure_null_sink() {
     if ! pactl list short sinks 2>/dev/null | grep -q "$SINK_NAME"; then

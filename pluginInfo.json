@@ -71,7 +71,7 @@
         "about": "operator",
         "keptDays": null,
         "canDelete": false,
-        "where": "plugindata/fpp-EncoreRadio/encoreradio.json (mode 600) and media/plugins/fpp-EncoreRadio/state/pianobar_home/.config/pianobar/config (mode 600, root-owned)"
+        "where": "plugindata/fpp-EncoreRadio/encoreradio.json and .../pianobar_home/.config/pianobar/config (both mode 600)"
       },
       {
         "what": "Spotify client ID/secret and access/refresh tokens",
