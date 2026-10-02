@@ -107,6 +107,7 @@
       "maxFPPVersion": "9.99",
       "branch": "master",
       "sha": "",
+      "platforms": [ "Raspberry Pi", "BeagleBone Black", "BeagleBone 64", "Armbian", "Debian", "Ubuntu" ],
       "dependencies": {
         "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "smbclient", "pulseaudio", "pulseaudio-utils", "libasound2-plugins"]
       }
@@ -116,6 +117,7 @@
       "maxFPPVersion": "0",
       "branch": "master",
       "sha": "",
+      "platforms": [ "Raspberry Pi", "BeagleBone Black", "BeagleBone 64", "Armbian", "Debian", "Ubuntu" ],
       "dependencies": {
         "packages": ["ffmpeg", "pianobar", "curl", "python3", "jq", "smbclient", "pulseaudio-utils", "libasound2-plugins"]
       }
