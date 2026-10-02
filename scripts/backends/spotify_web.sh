@@ -22,6 +22,9 @@ CFG_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# shellcheck source=lib_curl_secure.sh
+source "${HERE}/lib_curl_secure.sh"
+
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [spotify] $*" >> "$LOG_FILE"; }
 
@@ -72,8 +75,8 @@ fi
 # restarts/pairings, so this is always looked up fresh rather than cached.
 # DEVICE_NAME passed via the environment, not spliced into the source
 # string, since it's read back from config rather than a fixed literal.
-DEVICE_ID="$(curl -s -m 10 "https://api.spotify.com/v1/me/player/devices" \
-    -H "Authorization: Bearer ${TOKEN}" | DEVICE_NAME="$DEVICE_NAME" python3 -c "
+DEVICE_ID="$(er_curl_secure "header = \"Authorization: Bearer $(er_curl_cfg_escape "$TOKEN")\"" \
+    -s -m 10 "https://api.spotify.com/v1/me/player/devices" | DEVICE_NAME="$DEVICE_NAME" python3 -c "
 import json, sys, os
 try:
     devices = json.load(sys.stdin).get('devices', [])
@@ -96,11 +99,11 @@ log "Playing $PLAYLIST_URI on device '$DEVICE_NAME' (id=$DEVICE_ID)"
 # /tmp path could be pre-planted as a symlink by any local user to have
 # curl -o write/truncate an arbitrary file.
 PLAY_RESP_FILE="$(mktemp /tmp/encoreradio_spotify_play.XXXXXX)"
-HTTP_CODE="$(curl -s -o "$PLAY_RESP_FILE" -w '%{http_code}' -m 10 \
-    -X PUT "https://api.spotify.com/v1/me/player/play?device_id=${DEVICE_ID}" \
-    -H "Authorization: Bearer ${TOKEN}" \
-    -H "Content-Type: application/json" \
-    -d "{\"context_uri\":\"${PLAYLIST_URI}\"}")"
+PLAY_CFG="header = \"Authorization: Bearer $(er_curl_cfg_escape "$TOKEN")\"
+header = \"Content-Type: application/json\"
+data = \"$(er_curl_cfg_escape "{\"context_uri\":\"${PLAYLIST_URI}\"}")\""
+HTTP_CODE="$(er_curl_secure "$PLAY_CFG" -s -o "$PLAY_RESP_FILE" -w '%{http_code}' -m 10 \
+    -X PUT "https://api.spotify.com/v1/me/player/play?device_id=${DEVICE_ID}")"
 
 if [[ "$HTTP_CODE" != "204" && "$HTTP_CODE" != "200" ]]; then
     log "ERROR: Spotify play request failed (HTTP $HTTP_CODE): $(cat "$PLAY_RESP_FILE" 2>/dev/null)"
@@ -120,5 +123,6 @@ try:    print(int(json.load(open('$CFG_FILE')).get('volume', 70)))
 except: print(70)
 " 2>/dev/null || echo 70)"
 
-curl -s -m 10 -X PUT "https://api.spotify.com/v1/me/player/volume?volume_percent=${VOLUME}&device_id=${DEVICE_ID}" \
-    -H "Authorization: Bearer ${TOKEN}" >> "$LOG_FILE" 2>&1 || log "WARNING: failed to set Spotify volume"
+er_curl_secure "header = \"Authorization: Bearer $(er_curl_cfg_escape "$TOKEN")\"" \
+    -s -m 10 -X PUT "https://api.spotify.com/v1/me/player/volume?volume_percent=${VOLUME}&device_id=${DEVICE_ID}" \
+    >> "$LOG_FILE" 2>&1 || log "WARNING: failed to set Spotify volume"

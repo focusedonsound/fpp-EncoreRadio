@@ -13,6 +13,10 @@ set -uo pipefail
 
 CFG_FILE="/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=lib_curl_secure.sh
+source "${HERE}/lib_curl_secure.sh"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [spotify-token] $*" >> "$LOG_FILE"; }
@@ -40,11 +44,14 @@ if [[ -n "$ACCESS_TOKEN" && "$EXPIRES_AT" -gt $((NOW + 60)) ]]; then
 fi
 
 log "Access token missing/expired, refreshing"
-RESP="$(curl -s -m 10 -X POST "https://accounts.spotify.com/api/token" \
-    -H "Content-Type: application/x-www-form-urlencoded" \
-    -u "${CLIENT_ID}:${CLIENT_SECRET}" \
-    -d "grant_type=refresh_token" \
-    -d "refresh_token=${REFRESH_TOKEN}")"
+# Client secret and refresh token go through lib_curl_secure.sh's -K
+# config file, not -u/-d on the command line - both would otherwise sit
+# in this process's argv, readable via `ps` by anything else on the box.
+CURL_CFG="user = \"$(er_curl_cfg_escape "$CLIENT_ID"):$(er_curl_cfg_escape "$CLIENT_SECRET")\"
+data = \"grant_type=refresh_token\"
+data = \"refresh_token=$(er_curl_cfg_escape "$REFRESH_TOKEN")\""
+RESP="$(er_curl_secure "$CURL_CFG" -s -m 10 -X POST "https://accounts.spotify.com/api/token" \
+    -H "Content-Type: application/x-www-form-urlencoded")"
 
 NEW_ACCESS="$(echo "$RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)"
 EXPIRES_IN="$(echo "$RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('expires_in', 0))" 2>/dev/null || echo 0)"

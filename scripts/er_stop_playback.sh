@@ -19,6 +19,9 @@ STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
 LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=lib_curl_secure.sh
+source "${HERE}/lib_curl_secure.sh"
+
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [stop-playback] $*" >> "$LOG_FILE"; }
 
@@ -72,8 +75,8 @@ rm -f "/home/fpp/media/plugindata/fpp-EncoreRadio/netshare_authfile" 2>/dev/null
 if [[ "$ACTIVE_SOURCE" == "spotify" ]]; then
     TOKEN="$(bash "${HERE}/spotify_token.sh" 2>/dev/null)"
     if [[ -n "$TOKEN" ]]; then
-        curl -s -m 10 -X PUT "https://api.spotify.com/v1/me/player/pause" \
-            -H "Authorization: Bearer ${TOKEN}" >> "$LOG_FILE" 2>&1 || true
+        er_curl_secure "header = \"Authorization: Bearer $(er_curl_cfg_escape "$TOKEN")\"" \
+            -s -m 10 -X PUT "https://api.spotify.com/v1/me/player/pause" >> "$LOG_FILE" 2>&1 || true
     fi
 fi
 

@@ -31,6 +31,9 @@ LOG_FILE="${MEDIADIR:-/home/fpp/media}/logs/plugin-fpp-EncoreRadio.log"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRIAL_LIMIT_SECONDS=$((10 * 3600))
 
+# shellcheck source=lib_curl_secure.sh
+source "${HERE}/lib_curl_secure.sh"
+
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { echo "[$(ts)] [premium-gate] $*" >> "$LOG_FILE"; }
 
@@ -64,10 +67,10 @@ validate_license_key() {
     # confirmed on real hardware (see er_announce_scheduler.sh for the
     # same fix and fuller explanation).
     local http_code
-    http_code="$(curl -s -m 8 -o "$resp_file" -w '%{http_code}' \
-        -X POST "${LICENSE_SERVER_BASE}/validate" \
-        -H "Content-Type: application/json" \
-        -d "{\"key\":\"${LICENSE_KEY}\",\"hwid\":\"${hwid}\"}" 2>/dev/null)"
+    local validate_cfg="header = \"Content-Type: application/json\"
+data = \"$(er_curl_cfg_escape "{\"key\":\"${LICENSE_KEY}\",\"hwid\":\"${hwid}\"}")\""
+    http_code="$(er_curl_secure "$validate_cfg" -s -m 8 -o "$resp_file" -w '%{http_code}' \
+        -X POST "${LICENSE_SERVER_BASE}/validate" 2>/dev/null)"
 
     if [[ "$http_code" == "200" ]]; then
         local valid

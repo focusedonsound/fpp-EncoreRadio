@@ -8,6 +8,9 @@
 #
 # Requires CFG_FILE, STATE_DIR, HERE to already be set by the caller.
 
+# shellcheck source=lib_curl_secure.sh
+source "${HERE}/lib_curl_secure.sh"
+
 er_feature_enabled() {
     # $1 = "rotation" or "fallback"
     python3 -c "
@@ -192,7 +195,8 @@ except: print('')
             # script into an interpreter" to a naive static scanner (this
             # is JSON data being parsed, not code being fetched and run).
             local api_response
-            api_response="$(curl -s -m 8 "https://api.spotify.com/v1/me/player" -H "Authorization: Bearer ${token}" 2>/dev/null)"
+            api_response="$(er_curl_secure "header = \"Authorization: Bearer $(er_curl_cfg_escape "$token")\"" \
+                -s -m 8 "https://api.spotify.com/v1/me/player" 2>/dev/null)"
             python3 -c "
 import json, sys
 try:
