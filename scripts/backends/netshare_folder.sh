@@ -160,6 +160,28 @@ while IFS= read -r line; do
         [[ "$fname" == "." || "$fname" == ".." ]] && continue
         case "$fname" in
             *.[Mm][Pp]3|*.[Ff][Ll][Aa][Cc]|*.[Mm]4[Aa]|*.[Aa][Aa][Cc]|*.[Oo][Gg][Gg]|*.[Ww][Aa][Vv])
+                # This path gets spliced into smbclient's own -c command
+                # string later (netshare_batch_scheduler.sh's `get`) rather
+                # than passed as a separate argv element - a literal `"`
+                # breaks out of that quoting and a literal `\` collides
+                # with both smbclient's own escape character AND the `\`
+                # this script uses to join CURRENT_DIR/fname below. Skip
+                # rather than try to perfectly round-trip either one: a
+                # NAS owner can rename the one oddly-named file far more
+                # easily than this script can safely re-derive smbclient's
+                # exact quoting grammar for it.
+                case "$fname" in
+                    *'"'*|*'\'*)
+                        log "WARNING: skipping '${CURRENT_DIR:+$CURRENT_DIR\\}${fname}' - filename contains a quote or backslash, unsafe to pass to smbclient"
+                        continue
+                        ;;
+                esac
+                case "$CURRENT_DIR" in
+                    *'"'*|*'\'*)
+                        log "WARNING: skipping '${CURRENT_DIR}\\${fname}' - containing folder name has a quote or backslash, unsafe to pass to smbclient"
+                        continue
+                        ;;
+                esac
                 if [[ -n "$CURRENT_DIR" ]]; then
                     printf '%s\\%s\0' "$CURRENT_DIR" "$fname" >> "$REMOTE_LIST_FILE"
                 else

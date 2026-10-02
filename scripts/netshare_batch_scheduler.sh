@@ -154,6 +154,29 @@ stage_batch() {
         local local_path
         local_path="${dir}/$(printf '%04d' "$staged").audio"
 
+        # $remote is spliced into smbclient's own -c command string below,
+        # not passed as a separate argv element - a literal `"` breaks out
+        # of that quoting (command injection into smbclient's own command
+        # language, which supports chaining via `;` and even `!<shell
+        # cmd>`), and a literal `\` is smbclient's own escape character.
+        # netshare_folder.sh's enumeration already refuses to list any
+        # name containing either in the first place, so this is a backstop
+        # for anything that reaches here anyway - reject rather than
+        # attempt to re-escape, since getting smbclient's own quoting
+        # grammar exactly right from inside bash parameter expansion is
+        # its own source of bugs (tried it; bash's pattern-matching side
+        # of ${var//\\/\\\\} treats a lone backslash specially and
+        # silently fails to double it - confirmed empirically, not just
+        # suspected). A name this guard still has to catch here means
+        # the upstream guard has a gap, which is worth knowing about
+        # rather than silently papering over with a half-escaped request.
+        case "$remote" in
+            *'"'*|*'\'*)
+                log "WARNING: skipping '${remote}' - contains a quote or backslash that reached the batch scheduler unescaped (netshare_folder.sh should have filtered this - please report)"
+                continue
+                ;;
+        esac
+
         # No -D here: smbclient's recursive `ls` (netshare_folder.sh) prints
         # each header path relative to the SHARE ROOT even when scoped with
         # -D to a folder, so $remote already has that folder prefix baked
