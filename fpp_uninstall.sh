@@ -27,17 +27,22 @@ fi
 rm -rf "${STATE_DIR}/netshare_stage" "${STATE_DIR}/netshare_remote_list.txt" 2>/dev/null || true
 rm -f "/home/fpp/media/plugindata/fpp-EncoreRadio/netshare_authfile" 2>/dev/null || true
 
-# Raspotify's systemd service is exclusively ours - nothing else in this
-# ecosystem uses it - so it's safe to stop/disable on uninstall. The
-# raspotify package itself is left installed (a `Reinstall All` or plugin
-# reinstall shouldn't have to re-download a ~15MB .deb, and Spotify device
-# pairing state lives in its cache dir, which disabling the service doesn't
-# touch).
+# Raspotify's systemd service, package and /etc/raspotify/conf edit are
+# exclusively ours - nothing else in this ecosystem uses it - so it's
+# safe to fully revert on uninstall (Plugin Guidelines §2.1: no carve-out
+# for "a reinstall would have to re-download a ~15MB .deb"). The device's
+# Spotify Connect pairing itself lives in Spotify's own account state, not
+# locally, so nothing meaningful is lost that a reinstall can't redo.
 if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files raspotify.service >/dev/null 2>&1; then
   systemctl stop raspotify.service 2>/dev/null || true
   systemctl disable raspotify.service 2>/dev/null || true
   log "Stopped and disabled raspotify.service"
 fi
+if command -v dpkg >/dev/null 2>&1 && dpkg -s raspotify 2>/dev/null | grep -q '^Status: install ok installed$'; then
+  apt-get remove -y raspotify >/dev/null 2>&1 || true
+  log "Removed raspotify package"
+fi
+rm -f /etc/raspotify/conf 2>/dev/null || true
 
 # The encoreradio-pulse.service unit file only ever exists when THIS
 # plugin was the one that set up the shared PulseAudio socket
@@ -65,6 +70,14 @@ rm -f "${BRIDGE_OWNERS_DIR}/fpp-EncoreRadio" 2>/dev/null || true
 OTHER_BRIDGE_OWNERS=0
 if [[ -d "$BRIDGE_OWNERS_DIR" ]] && [[ -n "$(ls -A "$BRIDGE_OWNERS_DIR" 2>/dev/null)" ]]; then
   OTHER_BRIDGE_OWNERS=1
+else
+  # Nobody left depending on the bridge - the directory itself is also
+  # this mechanism's own footprint and shouldn't outlive every plugin
+  # that used it, not just the marker file inside it. rmdir rather than
+  # rm -rf: only ever removes it if it's actually empty, so a marker
+  # written between the check above and here (another plugin's install
+  # racing this uninstall) is never silently destroyed along with it.
+  rmdir "$BRIDGE_OWNERS_DIR" 2>/dev/null || true
 fi
 
 PULSE_SVC="/etc/systemd/system/encoreradio-pulse.service"
@@ -116,6 +129,20 @@ elif [[ -f "$PULSE_SVC" ]]; then
   fi
   pkill -u fpp pulseaudio 2>/dev/null || true
   pkill -u fpp pipewire-pulse 2>/dev/null || true
+
+  # ensure_users_in_audio_group() added the `pulse` system user to `audio`
+  # (only ever relevant on the legacy FPP 9.x path, where this plugin
+  # installs the real `pulseaudio` package - that's what creates the
+  # `pulse` user at all; FPP's own provisioning never touches it,
+  # confirmed against SD/FPP_Install.sh). Scoped to this branch only -
+  # the fpp USER's own audio-group membership is never touched here: that
+  # one is FPP's own base provisioning (same script, `adduser fpp audio`),
+  # not this plugin's to grant or revoke, and still needed by fppd's own
+  # show audio regardless of this plugin.
+  if command -v gpasswd >/dev/null 2>&1 && id -u pulse >/dev/null 2>&1; then
+    gpasswd -d pulse audio 2>/dev/null || true
+    log "Removed pulse user from the audio group"
+  fi
 elif [[ -f "$OTHER_PULSE_SVC" ]]; then
   # We're the last plugin depending on the bridge (OTHER_BRIDGE_OWNERS was
   # 0), but AA's unit - not ours - is the one actually serving it, because

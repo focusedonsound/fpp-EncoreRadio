@@ -388,7 +388,11 @@ setup_system_pulseaudio_if_needed() {
 autospawn = no
 default-server = unix:/run/pulse/native
 EOF
-  chown -R fpp:fpp "/home/fpp/.config" 2>/dev/null || true
+  # Only the pulse subdirectory this plugin actually writes into - not a
+  # recursive chown of the whole /home/fpp/.config tree, which would also
+  # re-own every OTHER app's config under there regardless of whether
+  # this plugin touched it.
+  chown -R fpp:fpp "$d" 2>/dev/null || true
 
   log "System PulseAudio ready at /run/pulse/native"
 }
