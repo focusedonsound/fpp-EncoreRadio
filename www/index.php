@@ -14,7 +14,7 @@ function erLoadConfig($path) {
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
-    "license" => ["email" => "", "registered" => false, "key" => ""],
+    "license" => ["key" => ""],
     "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
   if (file_exists($path)) {
@@ -64,17 +64,17 @@ $aaInstalled = $aaStatus["installed"];
 $spotifyConnected = trim((string)$cfg["spotify"]["refreshToken"]) !== "";
 $raspotifyInstalled = file_exists("/usr/bin/librespot");
 
-$registered = (bool)($cfg["license"]["registered"] ?? false);
 $hasLicenseKey = trim((string)$cfg["license"]["key"]) !== "";
-// Pandora/Spotify/Rotation (premium) are locked behind registration OR
-// an existing license key - never behind a default setting. Source
-// Fallback is free (auto-recovery, not a premium capability) and free
-// sources (customstream/netshare/TuneIn) are never
-// gated at all. Enforced again server-side in save.php, not just here.
-$premiumUnlocked = $registered || $hasLicenseKey;
 $trialSecondsUsed = erLoadTrialSecondsUsed("/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json");
 $trialSecondsRemaining = max(0, (10 * 3600) - $trialSecondsUsed);
 $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
+// Pandora/Spotify/Rotation (premium) are unlocked by the free trial
+// (while it has hours left) or an existing license key - never by
+// anything requiring a network call or an email address. Source
+// Fallback is free (auto-recovery, not a premium capability) and free
+// sources (customstream/netshare/TuneIn) are never gated at all.
+// Enforced again server-side in save.php, not just here.
+$premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
 ?>
 
 <style>
@@ -211,28 +211,18 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   <div class="fppTableContents">
     <table class="fppSelectableRowTable" style="width:100%;">
       <thead>
-        <tr><th style="padding:8px;"><i class="fas fa-fw fa-envelope"></i> Register</th></tr>
+        <tr><th style="padding:10px 8px;"><span style="font-size:1.25rem;">📻 Keep the Music Going — Sign Up Free</span></th></tr>
       </thead>
       <tbody>
         <tr><td style="padding:8px;">
-          <?php if ($registered): ?>
-            <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:var(--bs-success, #198754);"></i> Registered as <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong>. Pandora, Spotify, and Source Rotation are unlocked below.</p>
-          <?php else: ?>
-            <p class="text-muted">
-              Register your email to unlock Pandora, Spotify, and Source
-              Rotation. You'll get one welcome email now, and reminder
-              emails over the next couple weeks if you haven't entered a
-              license key by then (these stop automatically once you
-              have one). TuneIn, custom stream, network share, and
-              Source Fallback stay free either way - only this address
-              ever gets sent, never usage data.
-            </p>
-            <div class="d-flex gap-2 align-items-center flex-wrap">
-              <input type="email" class="form-control form-control-sm" id="er-signup-email" placeholder="you@example.com" style="width:100%; max-width:320px;" />
-              <button type="button" class="er-btn" onclick="erSignUp()"><i class="fas fa-fw fa-user-plus"></i> Register</button>
-            </div>
-            <span id="er-signup-status" class="d-block mt-2 small"></span>
-          <?php endif; ?>
+          <p class="text-muted mb-0">
+            Pandora and Spotify include a free 10-hour trial - just pick
+            one as your source below, nothing to sign up for first.
+            Want an email reminder before it runs out?
+            <a href="https://www.christmasinboontontwp.com/encore-radio-signup" target="_blank" rel="noopener">Sign up on our site</a>
+            (opens in a new tab) - entirely optional, and never required
+            to use the trial or any free source.
+          </p>
         </td></tr>
       </tbody>
     </table>
@@ -270,11 +260,11 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                 </div>
                 <div class="form-check">
                   <input class="form-check-input" type="radio" name="source" id="er-source-pandora" value="pandora" <?php echo $cfg["source"] === "pandora" ? "checked" : ""; ?> <?php echo $premiumUnlocked ? "" : "disabled"; ?> />
-                  <label class="form-check-label" for="er-source-pandora"><strong>Pandora</strong> <span class="text-muted small">- premium<?php echo $premiumUnlocked ? "" : " (register above, or enter a license key below, to unlock)"; ?></span></label>
+                  <label class="form-check-label" for="er-source-pandora"><strong>Pandora</strong> <span class="text-muted small">- premium<?php echo $premiumUnlocked ? "" : " (trial used up - enter a license key below to unlock)"; ?></span></label>
                 </div>
                 <div class="form-check">
                   <input class="form-check-input" type="radio" name="source" id="er-source-spotify" value="spotify" <?php echo $cfg["source"] === "spotify" ? "checked" : ""; ?> <?php echo $premiumUnlocked ? "" : "disabled"; ?> />
-                  <label class="form-check-label" for="er-source-spotify"><strong>Spotify</strong> <span class="text-muted small">- premium<?php echo $premiumUnlocked ? "" : " (register above, or enter a license key below, to unlock)"; ?></span></label>
+                  <label class="form-check-label" for="er-source-spotify"><strong>Spotify</strong> <span class="text-muted small">- premium<?php echo $premiumUnlocked ? "" : " (trial used up - enter a license key below to unlock)"; ?></span></label>
                 </div>
               </div>
             </td>
@@ -368,7 +358,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
               <?php if (!$premiumUnlocked): ?>
                 <p class="small text-warning">
                   <i class="fas fa-fw fa-lock"></i>
-                  Register your email above, or enter a license key below, to unlock Pandora.
+                  Your 10-hour trial is used up - enter a license key below to keep using Pandora.
                 </p>
               <?php endif; ?>
               <table style="width:100%; max-width:520px;">
@@ -411,7 +401,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
               <?php if (!$premiumUnlocked): ?>
                 <p class="small text-warning">
                   <i class="fas fa-fw fa-lock"></i>
-                  Register your email above, or enter a license key below, to unlock Spotify.
+                  Your 10-hour trial is used up - enter a license key below to keep using Spotify.
                 </p>
               <?php endif; ?>
               <?php if (!$raspotifyInstalled): ?>
@@ -613,7 +603,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
           <tr><td colspan="2" style="padding:8px;">
             <p class="small text-warning mb-0">
               <i class="fas fa-fw fa-lock"></i>
-              Register your email above, or enter a license key below, to unlock Source Rotation.
+              Your 10-hour trial is used up - enter a license key below to keep using Source Rotation.
             </p>
           </td></tr>
           <?php endif; ?>
@@ -741,8 +731,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
               <i class="fas fa-fw fa-floppy-disk"></i> Save Key
             </button>
             <p class="small text-muted mt-2 mb-0">
-              Registered above at <strong><?php echo htmlspecialchars($cfg["license"]["email"]); ?></strong> -
-              paste your license key here once you have one.
+              Paste your license key here once you have one.
             </p>
           </td></tr>
         </tbody>
@@ -1197,26 +1186,6 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
       };
       resultsDiv.appendChild(btn);
     });
-  }
-
-  async function erSignUp() {
-    const statusEl = document.getElementById('er-signup-status');
-    const emailEl = document.getElementById('er-signup-email');
-    const email = emailEl.value.trim();
-    if (!email) { statusEl.textContent = "Enter an email address first."; return; }
-    statusEl.textContent = "Saving...";
-    const res = await fetch(erUrl('license_register.php'), {
-      method: 'POST',
-      body: new URLSearchParams({ email }),
-      cache: 'no-store'
-    });
-    const j = await erReadJson(res);
-    if (j.status === 'OK') {
-      statusEl.textContent = j.message || "Saved!";
-      setTimeout(function () { window.location.reload(); }, 800);
-    } else {
-      statusEl.textContent = j.message || "Something went wrong.";
-    }
   }
 
   // Dragging the volume slider applies it live (issue #4 - it used to

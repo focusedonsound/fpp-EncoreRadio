@@ -1,8 +1,8 @@
 <?php
 // Shared file-locking helper for encoreradio.json.
 //
-// Every writer here (save.php, license_register.php, mark_onboarding_seen.php,
-// set_volume.php, spotify_callback.php) follows the same read -> merge ->
+// Every writer here (save.php, mark_onboarding_seen.php, set_volume.php,
+// spotify_callback.php) follows the same read -> merge ->
 // write-to-.tmp -> rename pattern. The rename itself is atomic, but the
 // read-and-merge in between isn't: two requests landing close together
 // (a user clicking Save while the volume slider's own background

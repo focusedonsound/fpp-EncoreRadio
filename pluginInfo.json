@@ -2,7 +2,7 @@
   "repoName": "fpp-EncoreRadio",
   "name": "Encore Radio",
   "author": "Nick Scilingo Nick S(NJ)",
-  "description": "Keep the radio station feel going after the light show ends. Streams a custom internet radio URL, TuneIn stations, or a folder of music from a network share (free), or Pandora and Spotify playlists (premium, needs a license key checked against encoreradio-license.nscilingo.workers.dev - Spotify sign-in also goes through that server), through your after-hours schedule. Source Fallback (auto-recovery if a source fails) is free for every source; Source Rotation (a different source on a day/time schedule) is premium. Includes Announcement Assistant integration for scheduled station-style announcements.",
+  "description": "Keep the radio station feel going after the light show ends. Streams a custom internet radio URL, TuneIn stations, or a folder of music from a network share (free), or Pandora and Spotify playlists (premium - a free 10-hour trial, no sign-up needed, then a license key checked against encoreradio-license.nscilingo.workers.dev - Spotify sign-in also goes through that server), through your after-hours schedule. Source Fallback (auto-recovery if a source fails) is free for every source; Source Rotation (a different source on a day/time schedule) is premium. Includes Announcement Assistant integration for scheduled station-style announcements.",
   "homeURL": "https://github.com/focusedonsound/fpp-EncoreRadio",
   "srcURL": "https://github.com/focusedonsound/fpp-EncoreRadio.git",
   "bugURL": "https://github.com/focusedonsound/fpp-EncoreRadio/issues",
@@ -12,12 +12,12 @@
   "minMemoryMB": 512,
   "minCpuCores": 2,
   "privacy": {
-    "summary": "Streams a station or your shared library (free), or Pandora/Spotify (premium), through FPP. The 10-hour trial is tracked locally and never reported anywhere.",
+    "summary": "Streams a station or your shared library (free), or Pandora/Spotify (10hr free trial, then a license key), through FPP. No sign-up in the plugin; trial hours are tracked locally only.",
     "sends": [
       {
         "to": "encoreradio-license.nscilingo.workers.dev",
-        "what": "Hardware ID + license key when validating; email for reminders; Spotify sign-in code + callback URL",
-        "why": "license validation, optional email reminders, and unlocking Pandora/Spotify/Rotation",
+        "what": "Hardware ID + license key when validating; Spotify sign-in code + callback URL",
+        "why": "license validation and Spotify sign-in",
         "alwaysOn": false
       },
       {
@@ -53,10 +53,10 @@
     ],
     "collects": [
       {
-        "what": "An email or license key - required for Pandora/Spotify/Rotation, never for free sources.",
+        "what": "A license key, once you have one (the free trial needs nothing stored here but the counter below).",
         "about": "operator",
         "keptDays": null,
-        "canDelete": false,
+        "canDelete": true,
         "where": "plugindata/fpp-EncoreRadio/encoreradio.json (mode 600)"
       },
       {
@@ -101,7 +101,7 @@
       { "kind": "network", "what": "Reads a configured SMB share via smbclient in small batches - no kernel mount; local relay listens on 127.0.0.1 only" }
     ],
     "closedCode": false,
-    "other": "Pandora, Spotify, and Source Rotation are locked until you register an email or already have a license key; Source Fallback and the free sources are never gated. Uninstalling reverts the raspotify package, /etc/raspotify/conf, and the pulse user's audio-group membership; plugindata/fpp-EncoreRadio/ (config, license, trial progress, saved credentials) is left in place so reinstalling doesn't lose your settings. The PulseAudio/PipeWire-pulse bridge, client.conf and the marker directory above are only reverted once nothing else (e.g. Announcement Assistant) still depends on them, tracked via the marker directory rather than assumed. Spotify sign-in: the OAuth code and your device's own local callback address transit the license server (encoreradio-license.nscilingo.workers.dev/spotify/callback), which just bounces your browser back to this device - token exchange itself happens entirely on the device, never on the server. The PulseAudio/PipeWire-pulse service: on FPP 9.x/no PipeWire it's a real system-wide PulseAudio instance and overwrites /etc/pulse/system.pa; on FPP 10.x/PipeWire it installs and runs pipewire-pulse instead (no system.pa involved), joined to FPP's own PipeWire graph. Network Share: never a kernel filesystem mount - reads the share through smbclient in small rolling batches (a few tracks staged locally at a time, deleted after playing), so a dead/unreachable NAS only ever fails this plugin's own next fetch, and a library far larger than local storage still works. What the license server keeps: the registered email and its registration date; for a purchased license, the license key, the hardware ID it's bound to, issue/expiry dates, and (if bought through a payment processor) that processor's own transaction reference - all kept indefinitely, with no automatic deletion. It does not store IP addresses or the LAN callback address itself. Reminder and welcome emails go out via Zoho's SMTP relay (smtp.zoho.com). The server also has Cloudflare Workers observability enabled (100% request sampling), which separately retains basic per-request metadata under Cloudflare's own plan - outside this plugin's or the server's own code's control."
+    "other": "Pandora, Spotify, and Source Rotation include a free 10-hour trial with no sign-up of any kind; after that, a license key is required. Source Fallback and the free sources are never gated. The plugin itself never collects or sends an email address - an optional 'sign up for a trial reminder' link on the settings page goes to this plugin's own website (encoreradio-license.nscilingo.workers.dev's companion site), entirely outside the plugin, never required to use any feature. Uninstalling reverts the raspotify package, /etc/raspotify/conf, and the pulse user's audio-group membership; plugindata/fpp-EncoreRadio/ (config, license, trial progress, saved credentials) is left in place so reinstalling doesn't lose your settings. The PulseAudio/PipeWire-pulse bridge, client.conf and the marker directory above are only reverted once nothing else (e.g. Announcement Assistant) still depends on them, tracked via the marker directory rather than assumed. Spotify sign-in: the OAuth code and your device's own local callback address transit the license server (encoreradio-license.nscilingo.workers.dev/spotify/callback), which just bounces your browser back to this device - token exchange itself happens entirely on the device, never on the server. The PulseAudio/PipeWire-pulse service: on FPP 9.x/no PipeWire it's a real system-wide PulseAudio instance and overwrites /etc/pulse/system.pa; on FPP 10.x/PipeWire it installs and runs pipewire-pulse instead (no system.pa involved), joined to FPP's own PipeWire graph. Network Share: never a kernel filesystem mount - reads the share through smbclient in small rolling batches (a few tracks staged locally at a time, deleted after playing), so a dead/unreachable NAS only ever fails this plugin's own next fetch, and a library far larger than local storage still works. What the license server keeps, for a validated license key: the key itself, the hardware ID it's bound to, issue/expiry dates, and (if bought through a payment processor) that processor's own transaction reference - kept indefinitely, no automatic deletion. If you additionally choose to sign up on the companion website for trial reminders (entirely separate from the plugin), it also keeps that email and registration date; reminder/welcome emails go out via Zoho's SMTP relay (smtp.zoho.com). The server does not store IP addresses or the LAN callback address. It also has Cloudflare Workers observability enabled (100% request sampling), which separately retains basic per-request metadata under Cloudflare's own plan - outside this plugin's or the server's own code's control."
   },
   "versions": [
     {

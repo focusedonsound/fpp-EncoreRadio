@@ -38,7 +38,7 @@ function erDefaultConfig() {
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
-    "license" => ["email" => "", "registered" => false, "key" => ""],
+    "license" => ["key" => ""],
     "ui" => ["onboardingSeen" => false, "onboardingTourEnabled" => true],
   ];
 }
@@ -65,20 +65,33 @@ if (file_exists($configFile)) {
 }
 
 // License - processed first so a freshly-pasted key can unlock premium
-// fields later in this same request, not just after a reload. Email/key
-// are the only fields this form edits; trial-hour tracking lives
-// entirely separately, in trial_state.json, written only by
-// er_track_usage.sh.
-$cfg["license"]["email"] = trim((string)($_POST["license_email"] ?? $cfg["license"]["email"]));
+// fields later in this same request, not just after a reload. Key is
+// the only field this form edits; trial-hour tracking lives entirely
+// separately, in trial_state.json, written only by er_track_usage.sh.
+// (Registration itself - the operator's email, for trial-reminder
+// emails - moved out of the plugin entirely, onto the license server's
+// own website; the plugin never collects or transmits it. See
+// er_premium_gate.sh for the matching trial-gate logic this mirrors.)
 $cfg["license"]["key"] = trim((string)($_POST["license_key"] ?? $cfg["license"]["key"]));
 
-// Pandora/Spotify/Rotation (premium) require registration OR an
-// existing license key - never a default. Source Fallback is free
-// (auto-recovery, not a premium capability), and free sources
-// (customstream/netshare/TuneIn, and Announcement scheduling) are never
-// gated either. Mirrors index.php's greyed-out fields, but enforced
-// here too since a disabled attribute alone doesn't stop a direct POST.
-$premiumUnlocked = (bool)($cfg["license"]["registered"] ?? false) || $cfg["license"]["key"] !== "";
+// Pandora/Spotify/Rotation (premium) are unlocked by the free trial
+// (while it has hours left) or an existing license key - never by
+// anything requiring a network call or an email address. Source
+// Fallback is free (auto-recovery, not a premium capability), and free
+// sources (customstream/netshare/TuneIn, and Announcement scheduling)
+// are never gated either. Mirrors index.php's greyed-out fields, but
+// enforced here too since a disabled attribute alone doesn't stop a
+// direct POST.
+function erTrialSecondsRemaining() {
+  $path = "/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json";
+  $used = 0;
+  if (file_exists($path)) {
+    $j = json_decode(@file_get_contents($path), true);
+    if (is_array($j)) $used = (int)($j["trialSecondsUsed"] ?? 0);
+  }
+  return max(0, (10 * 3600) - $used);
+}
+$premiumUnlocked = erTrialSecondsRemaining() > 0 || $cfg["license"]["key"] !== "";
 
 $source = trim((string)($_POST["source"] ?? ""));
 if (!in_array($source, ["", "customstream", "netshare", "tunein", "pandora", "spotify"], true)) {
@@ -210,8 +223,8 @@ if ($premiumUnlocked) {
   $cfg["spotify"]["playlistUri"] = trim((string)($_POST["spotify_playlistUri"] ?? $cfg["spotify"]["playlistUri"]));
   $cfg["spotify"]["playlistName"] = trim((string)($_POST["spotify_playlistName"] ?? $cfg["spotify"]["playlistName"]));
 }
-// else: leave $cfg["pandora"]/$cfg["spotify"] exactly as loaded - not
-// registered and no license key, so none of this is accepted yet.
+// else: leave $cfg["pandora"]/$cfg["spotify"] exactly as loaded - trial
+// exhausted and no license key, so none of this is accepted yet.
 
 $validSources = ["customstream", "netshare", "tunein", "pandora", "spotify"];
 

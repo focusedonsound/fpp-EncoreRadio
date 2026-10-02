@@ -594,8 +594,6 @@ seed_default_config_if_missing() {
     "times": []
   },
   "license": {
-    "email": "",
-    "registered": false,
     "key": ""
   },
   "ui": {

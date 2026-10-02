@@ -49,9 +49,8 @@ a license key unlocks it.
 1. Install Encore Radio from the FPP Plugin Manager (or add this repo
    manually).
 2. Open the Encore Radio page and pick a source - Pandora, Spotify, and
-   Source Rotation need a quick, free email registration (or a license
-   key, if you already have one) first; everything else is unlocked
-   right away.
+   Source Rotation are unlocked right away too, by a free 10-hour trial
+   (no sign-up needed); everything else is unlocked right away as well.
 3. Add two FPP Schedule entries: **Encore Radio - Start** for when your
    show ends, **Encore Radio - Stop** for when you want it to end for the
    night. Want different Internet Radio stations at different times? Save

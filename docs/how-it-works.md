@@ -108,15 +108,22 @@ this, the announcement would have played over the stream at full volume).
 ## Free vs. premium
 
 A custom stream URL, a network share, TuneIn, Source Fallback, and basic
-announcement scheduling are always free, no registration. Pandora,
-Spotify, and Source Rotation require registering an email or entering a
-license key first (see `www/save.php`'s `$premiumUnlocked`) - once
-unlocked, Pandora/Spotify additionally get a 10-cumulative-hour trial
-before a license key is actually required to keep using them.
+announcement scheduling are always free, no sign-up of any kind.
+Pandora, Spotify, and Source Rotation are unlocked by a free
+10-cumulative-hour trial (see `www/save.php`'s `$premiumUnlocked`) -
+nothing to enter, nothing sent anywhere, just pick one as your source.
+Once the trial's hours are used up, a license key is required to keep
+using them.
 
 ## License gating
 
-Registration-or-key unlocks the premium UI/config; separately,
-Pandora/Spotify playback itself checks for a valid trial or license
-before starting (`scripts/er_premium_gate.sh`), off a purely local
-counter. See `docs/configuration.md` for the relevant config fields.
+The trial (while it has hours left) or a license key unlocks the
+premium UI/config; separately, Pandora/Spotify playback itself checks
+for a valid trial or license before starting
+(`scripts/er_premium_gate.sh`), off a purely local counter - the
+plugin never sends anything to start or extend the trial itself. A
+link on the settings page to an optional sign-up page on the author's
+own website (for an email reminder before the trial ends) is the only
+way an email address is ever involved, and it's entirely separate from
+the plugin's own code. See `docs/configuration.md` for the relevant
+config fields.

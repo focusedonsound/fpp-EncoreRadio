@@ -96,9 +96,9 @@ Connect/devices list. Also confirm `raspotify.service` is actually running
 ## Pandora/Spotify: playback works but stops after the trial
 
 Expected - Pandora and Spotify are both premium, gated behind a shared
-10-cumulative-hour trial (or a valid license key). Register on the Encore
-Radio page and enter a license key once you have one. The custom stream
-and TuneIn sources are unaffected; they're never gated.
+10-cumulative-hour trial (or a valid license key). Enter a license key
+on the Encore Radio page once you have one. The custom stream and
+TuneIn sources are unaffected; they're never gated.
 
 ## Relay port already in use / stale process
 
