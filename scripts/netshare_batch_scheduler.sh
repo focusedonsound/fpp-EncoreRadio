@@ -158,21 +158,21 @@ stage_batch() {
         # not passed as a separate argv element - a literal `"` breaks out
         # of that quoting (command injection into smbclient's own command
         # language, which supports chaining via `;` and even `!<shell
-        # cmd>`), and a literal `\` is smbclient's own escape character.
-        # netshare_folder.sh's enumeration already refuses to list any
-        # name containing either in the first place, so this is a backstop
-        # for anything that reaches here anyway - reject rather than
-        # attempt to re-escape, since getting smbclient's own quoting
-        # grammar exactly right from inside bash parameter expansion is
-        # its own source of bugs (tried it; bash's pattern-matching side
-        # of ${var//\\/\\\\} treats a lone backslash specially and
-        # silently fails to double it - confirmed empirically, not just
-        # suspected). A name this guard still has to catch here means
-        # the upstream guard has a gap, which is worth knowing about
-        # rather than silently papering over with a half-escaped request.
+        # cmd>`). $remote legitimately contains `\` as the path separator
+        # between folder levels (CURRENT_DIR\fname, joined one level at a
+        # time by netshare_folder.sh) - that's smbclient's own convention
+        # for a nested path, not a hazard, so this must not reject on it
+        # (an earlier version of this guard did, which broke every
+        # subfolder: reported against a real library, confirmed and
+        # fixed). netshare_folder.sh's enumeration already refuses to list
+        # any individual name component containing a literal quote or
+        # backslash, so only the quote is left to backstop here - a name
+        # that still reaches this check unsafe means the upstream guard
+        # has a gap, worth knowing about rather than silently working
+        # around with a half-escaped request.
         case "$remote" in
-            *'"'*|*'\'*)
-                log "WARNING: skipping '${remote}' - contains a quote or backslash that reached the batch scheduler unescaped (netshare_folder.sh should have filtered this - please report)"
+            *'"'*)
+                log "WARNING: skipping '${remote}' - contains a quote that reached the batch scheduler unescaped (netshare_folder.sh should have filtered this - please report)"
                 continue
                 ;;
         esac

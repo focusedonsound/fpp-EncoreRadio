@@ -170,15 +170,26 @@ while IFS= read -r line; do
                 # NAS owner can rename the one oddly-named file far more
                 # easily than this script can safely re-derive smbclient's
                 # exact quoting grammar for it.
+                # fname is always a single atomic name component (never
+                # path-joined), so either character appearing in it is
+                # genuinely foreign - keep rejecting both.
                 case "$fname" in
                     *'"'*|*'\'*)
                         log "WARNING: skipping '${CURRENT_DIR:+$CURRENT_DIR\\}${fname}' - filename contains a quote or backslash, unsafe to pass to smbclient"
                         continue
                         ;;
                 esac
+                # CURRENT_DIR is different: it's smbclient's own recursive
+                # `ls` header line, which ALWAYS uses \ as the path
+                # separator between folder levels - rejecting on backslash
+                # here doesn't catch anything unsafe, it just rejects every
+                # folder nested two or more levels deep (confirmed: a real
+                # library's Christmas\Bing Crosby\*.mp3 was silently staging
+                # nothing). Only the quote character is actually foreign in
+                # a directory header.
                 case "$CURRENT_DIR" in
-                    *'"'*|*'\'*)
-                        log "WARNING: skipping '${CURRENT_DIR}\\${fname}' - containing folder name has a quote or backslash, unsafe to pass to smbclient"
+                    *'"'*)
+                        log "WARNING: skipping everything under '${CURRENT_DIR}' - folder name contains a quote, unsafe to pass to smbclient"
                         continue
                         ;;
                 esac
