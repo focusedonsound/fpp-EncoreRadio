@@ -34,24 +34,33 @@ function erLoadTrialSecondsUsed($path) {
   return 0;
 }
 
-function erLoadAASlots() {
-  $path = "/home/fpp/media/config/announcementassistant.json";
-  $slots = [];
-  if (file_exists($path)) {
-    $j = json_decode(@file_get_contents($path), true);
-    if (is_array($j) && isset($j["buttons"]) && is_array($j["buttons"])) {
-      foreach ($j["buttons"] as $i => $btn) {
-        $label = trim((string)($btn["label"] ?? ("Slot " . ($i + 1))));
-        $slots[] = ["index" => $i, "label" => $label];
-      }
-    }
-  }
-  return $slots;
+// Talks to Announcement Assistant through its own api.php endpoint
+// (GET /api/plugin/fpp-AnnouncementAssistant/slots) rather than reading
+// announcementassistant.json directly - Plugin Guidelines §5 (talk to
+// another plugin through its own interface, not its files). Returns
+// ["installed" => bool, "slots" => array] rather than just the slot
+// list - a reachable endpoint that happens to return zero slots (AA
+// installed, but no buttons configured yet) must not be mistaken for
+// "AA isn't installed".
+function erLoadAAStatus() {
+  $ch = curl_init("http://127.0.0.1/api/plugin/fpp-AnnouncementAssistant/slots");
+  curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT => 5,
+  ]);
+  $resp = curl_exec($ch);
+  $ok = curl_errno($ch) === 0 && curl_getinfo($ch, CURLINFO_HTTP_CODE) === 200;
+  curl_close($ch);
+  if (!$ok) return ["installed" => false, "slots" => []];
+
+  $j = json_decode((string)$resp, true);
+  return ["installed" => true, "slots" => is_array($j) ? $j : []];
 }
 
 $cfg = erLoadConfig($configFile);
-$aaSlots = erLoadAASlots();
-$aaInstalled = file_exists("/home/fpp/media/config/announcementassistant.json");
+$aaStatus = erLoadAAStatus();
+$aaSlots = $aaStatus["slots"];
+$aaInstalled = $aaStatus["installed"];
 $spotifyConnected = trim((string)$cfg["spotify"]["refreshToken"]) !== "";
 $raspotifyInstalled = file_exists("/usr/bin/librespot");
 
@@ -69,10 +78,20 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 ?>
 
 <style>
-/* Encore Radio - explicit colours for FPP 9.x / 10.x compatibility
-   (same reasoning as Announcement Assistant / HDMI CEC+: FPP 9.x's
-   Bootstrap 4 dark theme renders btn-outline-light as white-on-white,
-   so buttons here are hardcoded to look the same on every FPP version). */
+/* Bootstrap 5's own semantic colour variables, with the plugin's
+   original hand-picked hex as the var() fallback - FPP 9.x/Bootstrap 4
+   never defines --bs-primary etc, so this renders pixel-identical to
+   before there. FPP 10.x/Bootstrap 5 does define them (confirmed on
+   real hardware against fpp-bootstrap-5-3.css), so these pick up
+   whatever FPP's own theme actually uses instead of a separate custom
+   palette - including under [data-bs-theme="dark"], same as the
+   walkthrough popup fix above. Hover/focus darken via a CSS filter
+   rather than a second hardcoded hex per state - that adapts to
+   whichever base colour actually resolved, on either FPP version,
+   without this block needing to hardcode yet another shade per button
+   variant. (FPP 9.x's Bootstrap 4 dark theme renders btn-outline-light
+   as white-on-white - same reasoning as Announcement Assistant/HDMI
+   CEC+ for staying off that class entirely, var() fallback aside.) */
 .er-btn {
   display: inline-flex;
   align-items: center;
@@ -84,43 +103,30 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   text-align: center;
   white-space: nowrap;
   cursor: pointer;
-  border: 1px solid #3a7fc1;
+  border: 1px solid var(--bs-primary, #1a6eb5);
   border-radius: .3rem;
   text-decoration: none !important;
-  background-color: #1a6eb5;
+  background-color: var(--bs-primary, #1a6eb5);
   color: #fff !important;
-  transition: background-color .15s ease-in-out, border-color .15s;
+  transition: filter .15s ease-in-out;
   vertical-align: middle;
 }
 .er-btn:hover, .er-btn:focus {
-  background-color: #155a94;
-  border-color: #0e4370;
+  filter: brightness(85%);
   color: #fff !important;
   text-decoration: none !important;
 }
 .er-btn-secondary {
-  background-color: #6c757d;
-  border-color: #6c757d;
-}
-.er-btn-secondary:hover, .er-btn-secondary:focus {
-  background-color: #5c636a;
-  border-color: #565e64;
+  background-color: var(--bs-secondary, #6c757d);
+  border-color: var(--bs-secondary, #6c757d);
 }
 .er-btn-success {
-  background-color: #198754;
-  border-color: #146c43;
-}
-.er-btn-success:hover, .er-btn-success:focus {
-  background-color: #146c43;
-  border-color: #0f5132;
+  background-color: var(--bs-success, #198754);
+  border-color: var(--bs-success, #198754);
 }
 .er-btn-danger {
-  background-color: #b02a37;
-  border-color: #842029;
-}
-.er-btn-danger:hover, .er-btn-danger:focus {
-  background-color: #842029;
-  border-color: #6a1a20;
+  background-color: var(--bs-danger, #b02a37);
+  border-color: var(--bs-danger, #b02a37);
 }
 .er-btn:disabled, .er-btn.disabled {
   opacity: .55;
@@ -136,11 +142,18 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
   .er-page-header { flex-wrap: wrap !important; row-gap: .5rem; }
   .er-page-header > *:first-child { flex: 1 1 100%; }
   .er-link-row { flex-wrap: wrap; width: 100%; }
+  /* The fixed 160px label-column width (Slot/Priority N/License Key)
+     is fine on desktop but eats close to half a phone-width screen,
+     squeezing the actual control into what's left. Let it size to its
+     own (short) text instead, freeing that space back up for the
+     control next to it - same rows, same table, just not pinned to a
+     desktop-sized column below this breakpoint. */
+  .er-label-cell { width: auto !important; white-space: nowrap; }
 }
 
 #er-tour-highlight {
   position: fixed; z-index: 10050; pointer-events: none;
-  border: 2px solid #1a6eb5; border-radius: 6px;
+  border: 2px solid var(--bs-primary, #1a6eb5); border-radius: 6px;
   box-shadow: 0 0 0 4000px rgba(0,0,0,0.45);
   transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s;
 }
@@ -153,7 +166,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
 #er-tour-popup {
   position: fixed; z-index: 10051; max-width: 340px; width: calc(100% - 24px);
   background-color: var(--bs-body-bg, #fff); color: var(--bs-body-color, #212529);
-  border: 1px solid #1a6eb5; border-radius: .4rem;
+  border: 1px solid var(--bs-primary, #1a6eb5); border-radius: .4rem;
   box-shadow: 0 .5rem 1rem rgba(0,0,0,.35);
 }
 #er-tour-arrow {
@@ -450,7 +463,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
                 <button type="button" class="er-btn" onclick="erSave().then(erConnectSpotify)">
                   <i class="fas fa-fw fa-link"></i> Save &amp; Connect to Spotify
                 </button>
-                <span class="er-pill" style="background-color:<?php echo $spotifyConnected ? '#198754' : '#6c757d'; ?>;">
+                <span class="er-pill" style="background-color:<?php echo $spotifyConnected ? 'var(--bs-success, #198754)' : 'var(--bs-secondary, #6c757d)'; ?>;">
                   <i class="fas fa-fw fa-circle fa-2xs"></i>
                   <?php echo $spotifyConnected ? "Connected" : "Not connected yet"; ?>
                 </span>
@@ -539,7 +552,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
               </div>
             </td></tr>
             <tr>
-              <td class="py-1" style="padding:8px; width:160px;">Slot</td>
+              <td class="py-1 er-label-cell" style="padding:8px; width:160px;">Slot</td>
               <td class="py-1" style="padding:8px;">
                 <select name="announce_slot" class="form-control form-control-sm" style="max-width:320px;">
                   <option value="">-- select --</option>
@@ -660,7 +673,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
           ?>
           <?php for ($i = 1; $i <= 5; $i++): $picked = $chain[$i - 1] ?? ""; ?>
             <tr>
-              <td class="py-1" style="padding:8px; width:160px;">Priority <?php echo $i; ?></td>
+              <td class="py-1 er-label-cell" style="padding:8px; width:160px;">Priority <?php echo $i; ?></td>
               <td class="py-1" style="padding:8px;">
                 <select name="fallback_priority_<?php echo $i; ?>" class="form-control form-control-sm" style="max-width:280px;">
                   <?php foreach ($sourceLabels as $val => $label): ?>
@@ -679,7 +692,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     <div class="fppTableContents">
       <table class="fppSelectableRowTable" style="width:100%;">
         <thead>
-          <tr><th style="padding:8px;"><i class="fas fa-fw fa-tower-broadcast"></i> RDS Now-Playing (Premium) <span class="er-pill" style="background-color:#6c757d;">Coming Soon</span></th></tr>
+          <tr><th style="padding:8px;"><i class="fas fa-fw fa-tower-broadcast"></i> RDS Now-Playing (Premium) <span class="er-pill" style="background-color:var(--bs-secondary, #6c757d);">Coming Soon</span></th></tr>
         </thead>
         <tbody>
           <tr><td style="padding:8px;">
@@ -707,7 +720,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
         <tbody>
           <tr><td colspan="2" style="padding:8px;">
             <?php if ($hasLicenseKey): ?>
-              <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:#198754;"></i> License key on file. Premium features (Pandora, Spotify, Source Rotation) are unlocked.</p>
+              <p class="mb-0"><i class="fas fa-fw fa-circle-check" style="color:var(--bs-success, #198754);"></i> License key on file. Premium features (Pandora, Spotify, Source Rotation) are unlocked.</p>
             <?php else: ?>
               <p class="mb-0">
                 <strong><?php echo $trialHoursRemaining; ?> premium hours remaining</strong>
@@ -718,7 +731,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
             <?php endif; ?>
           </td></tr>
           <tr>
-            <td class="py-1" style="padding:8px; width:160px;">License Key</td>
+            <td class="py-1 er-label-cell" style="padding:8px; width:160px;">License Key</td>
             <td class="py-1" style="padding:8px;">
               <input type="text" class="form-control form-control-sm" name="license_key" style="max-width:320px;" value="<?php echo htmlspecialchars($cfg["license"]["key"]); ?>" />
             </td>
@@ -848,7 +861,7 @@ $trialHoursRemaining = round($trialSecondsRemaining / 3600, 1);
     resultsDiv.innerHTML = '';
     const found = document.createElement('div');
     found.className = 'small';
-    found.style.color = '#198754';
+    found.style.color = 'var(--bs-success, #198754)';
     found.innerHTML = '<i class="fas fa-fw fa-circle-check"></i> ';
     found.appendChild(document.createTextNode('Found "' + j.name + '" (' + j.trackCount + ' tracks) - selected below.'));
     resultsDiv.appendChild(found);

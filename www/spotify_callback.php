@@ -17,7 +17,14 @@ $configFile = "/home/fpp/media/plugindata/fpp-EncoreRadio/encoreradio.json";
 require_once __DIR__ . "/er_config_lock.php";
 
 function erRenderResult(bool $ok, string $message): void {
-  $color = $ok ? "#2a7" : "#c33";
+  // This page has no FPP header/theme shell around it at all (it's the
+  // bare OAuth-redirect landing target, not loaded via plugin.php), so
+  // there's no [data-bs-theme] context to actually differ by - the
+  // var() fallback is what always renders here. Still using the same
+  // Bootstrap semantic colours (with the plugin's own prior shorthand
+  // hex as the fallback) rather than a one-off literal, in case this
+  // page ever does end up embedded in FPP's shell later.
+  $color = $ok ? "var(--bs-success, #2a7)" : "var(--bs-danger, #c33)";
   echo "<h2 style='color:{$color}'>" . ($ok ? "Spotify connected!" : "Spotify connection failed") . "</h2>";
   echo "<p>" . htmlspecialchars($message) . "</p>";
   echo "<p><a href='plugin.php?plugin=fpp-EncoreRadio&page=www/index.php'>Return to Encore Radio</a></p>";
