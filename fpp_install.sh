@@ -304,6 +304,28 @@ ensure_users_in_audio_group() {
   fi
 }
 
+# Shared marker directory both Encore Radio and Announcement Assistant
+# write a file into (named after their own repoName) whenever either one
+# depends on the shared /run/pulse/native bridge - regardless of which of
+# the two actually owns the systemd unit serving it. Ownership used to be
+# inferred purely from "does my own named unit file exist on disk", which
+# works fine for "do I need to create the bridge" but has no way to answer
+# "is anyone ELSE still depending on it" - found on review: whichever
+# plugin installs first becomes the sole owner with zero durable record
+# that the second plugin is also relying on that same socket, so
+# uninstalling the owner tears the bridge down from under the survivor
+# with no self-healing until its own next reinstall. See fpp_uninstall.sh
+# for the other half of this - only remove-own-marker-then-check-empty
+# tells the truth about whether it's actually safe to tear the bridge down.
+BRIDGE_OWNERS_DIR="/etc/fpp-plugins/pulse-bridge-owners"
+BRIDGE_OWNER_MARKER="${BRIDGE_OWNERS_DIR}/fpp-EncoreRadio"
+
+register_pulse_bridge_dependency() {
+  mkdir -p "$BRIDGE_OWNERS_DIR" 2>/dev/null || return 0
+  chmod 755 "$BRIDGE_OWNERS_DIR" 2>/dev/null || true
+  : > "$BRIDGE_OWNER_MARKER" 2>/dev/null || true
+}
+
 # Idempotent, and deliberately compatible with Announcement Assistant's own
 # setup: if /run/pulse/native already exists (AA - or a previous Encore
 # Radio install - already stood up a system PulseAudio), reuse it rather
@@ -311,6 +333,7 @@ ensure_users_in_audio_group() {
 setup_system_pulseaudio_if_needed() {
   if pulse_bridge_alive; then
     log "System PulseAudio socket already present and responding (/run/pulse/native) - reusing it."
+    register_pulse_bridge_dependency
     return 0
   fi
 
@@ -321,6 +344,7 @@ setup_system_pulseaudio_if_needed() {
   else
     setup_system_real_pulseaudio
   fi
+  register_pulse_bridge_dependency
 
   local d="/home/fpp/.config/pulse"
   ensure_dir "$d"

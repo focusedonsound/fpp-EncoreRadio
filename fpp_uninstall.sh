@@ -52,8 +52,31 @@ fi
 # using them, which the Plugin Guidelines don't allow ("no carve-out for
 # another plugin might be using it" - but that carve-out only applies
 # when it's actually true, which this checks for rather than assumes).
+# Remove our own dependency marker first, then check whether anyone else's
+# is still there - this is the actual reference count, not just "does my
+# own unit file exist" (see fpp_install.sh's register_pulse_bridge_dependency
+# for the other half). A marker from a plugin installed before this one
+# shipped this mechanism won't exist yet, so this can under-count on an
+# upgrade path crossing that boundary - acceptable: it only means one
+# extra uninstall cycle before the count is trustworthy again, never a
+# false "nobody needs this" teardown.
+BRIDGE_OWNERS_DIR="/etc/fpp-plugins/pulse-bridge-owners"
+rm -f "${BRIDGE_OWNERS_DIR}/fpp-EncoreRadio" 2>/dev/null || true
+OTHER_BRIDGE_OWNERS=0
+if [[ -d "$BRIDGE_OWNERS_DIR" ]] && [[ -n "$(ls -A "$BRIDGE_OWNERS_DIR" 2>/dev/null)" ]]; then
+  OTHER_BRIDGE_OWNERS=1
+fi
+
 PULSE_SVC="/etc/systemd/system/encoreradio-pulse.service"
-if [[ -f "$PULSE_SVC" ]]; then
+# The other plugin's own unit name - only relevant in the "we're the last
+# one standing" branch below, where IT already uninstalled first and left
+# its own unit running for us, so nothing else will ever clean it up if
+# we don't.
+OTHER_PULSE_SVC="/etc/systemd/system/announcementassistant-pulse.service"
+
+if [[ "$OTHER_BRIDGE_OWNERS" -eq 1 ]]; then
+  log "Another plugin still depends on the shared PulseAudio/PipeWire-pulse bridge - leaving it running."
+elif [[ -f "$PULSE_SVC" ]]; then
   log "Reverting Encore Radio's PulseAudio setup (nothing else appears to depend on it)"
   systemctl stop encoreradio-pulse.service 2>/dev/null || true
   systemctl disable encoreradio-pulse.service 2>/dev/null || true
@@ -93,8 +116,21 @@ if [[ -f "$PULSE_SVC" ]]; then
   fi
   pkill -u fpp pulseaudio 2>/dev/null || true
   pkill -u fpp pipewire-pulse 2>/dev/null || true
+elif [[ -f "$OTHER_PULSE_SVC" ]]; then
+  # We're the last plugin depending on the bridge (OTHER_BRIDGE_OWNERS was
+  # 0), but AA's unit - not ours - is the one actually serving it, because
+  # AA installed first. AA already uninstalled without tearing it down
+  # (correctly, at the time - this plugin's marker was still present) and
+  # nothing else is left to clean it up but us.
+  log "Reverting Announcement Assistant's PulseAudio/PipeWire-pulse bridge (nothing else depends on it, and AA is no longer installed to do this itself)"
+  systemctl stop announcementassistant-pulse.service 2>/dev/null || true
+  systemctl disable announcementassistant-pulse.service 2>/dev/null || true
+  rm -f "$OTHER_PULSE_SVC" || true
+  systemctl daemon-reload 2>/dev/null || true
+  pkill -u fpp pulseaudio 2>/dev/null || true
+  pkill -u fpp pipewire-pulse 2>/dev/null || true
 else
-  log "encoreradio-pulse.service not present - Encore Radio never owned the shared PulseAudio setup (or another plugin does) - leaving PulseAudio untouched."
+  log "No PulseAudio/PipeWire-pulse bridge unit present - Encore Radio never owned the shared setup (or another plugin does) - leaving PulseAudio untouched."
 fi
 
 # Config (encoreradio.json) is intentionally left in place so a reinstall
