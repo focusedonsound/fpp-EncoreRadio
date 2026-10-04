@@ -94,7 +94,8 @@ pulse_bridge_alive() {
 # never paid for on a call where nothing in it is missing.
 install_pkg_batch_if_missing() {
   local -n pkgs_ref="$1"
-  local missing=0 p
+  local -a missing_pkgs=()
+  local p
   for p in "${pkgs_ref[@]}"; do
     # `dpkg -s` exits 0 as long as dpkg has ANY record of the package,
     # including "deinstall ok config-files" (removed, config left behind)
@@ -106,13 +107,23 @@ install_pkg_batch_if_missing() {
     # install. Match the actual "installed" status line, not just dpkg
     # having heard of the package.
     if ! dpkg -s "$p" 2>/dev/null | grep -q '^Status: install ok installed$'; then
-      missing=1
-      break
+      missing_pkgs+=("$p")
     fi
   done
 
-  if [[ "$missing" -eq 1 ]]; then
-    log "Installing required packages: ${pkgs_ref[*]}…"
+  if [[ "${#missing_pkgs[@]}" -gt 0 ]]; then
+    # Only the packages actually missing go to apt-get install - not the
+    # whole group. Found on review: passing the full group as soon as ANY
+    # one package was missing meant apt-get install also upgraded every
+    # OTHER package in that same call that had a newer version available,
+    # even ones that were already installed and didn't need touching -
+    # e.g. a box missing only pianobar also got curl/jq/python3/ffmpeg
+    # bumped underneath FPP, and on the PipeWire path a missing
+    # pipewire-pulse took pipewire-alsa and the PipeWire libraries along
+    # with it, underneath FPP's running audio graph. Building the
+    # install list from only what's missing closes that regardless of
+    # which package in the group happened to be the gap.
+    log "Installing missing packages: ${missing_pkgs[*]}…"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -y
     # DEBIAN_FRONTEND only silences debconf; it does nothing for dpkg's own
@@ -125,7 +136,7 @@ install_pkg_batch_if_missing() {
     # block this plugin's own install.
     apt-get install -y --no-install-recommends \
       -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" \
-      "${pkgs_ref[@]}"
+      "${missing_pkgs[@]}"
   else
     log "Required packages (${pkgs_ref[*]}) already installed."
   fi
