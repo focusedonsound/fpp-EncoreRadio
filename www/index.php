@@ -1099,7 +1099,7 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
       erSetStatus("Not started - save failed: " + (saveResult.message || saveResult.status));
       return;
     }
-    erSetStatus('Starting "' + name + '" - this can take a few seconds...');
+    erSetStatus('Starting "' + name + '" - some stations connect in a few seconds, others take longer...');
     const res = await fetch('/api/command/' + encodeURIComponent('Encore Radio - Play Station'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1115,7 +1115,7 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
     document.querySelector('input[name="customstream_name"]').value = entry.name;
     document.querySelector('input[name="customstream_streamUrl"]').value = entry.streamUrl;
     const result = await erCheckPlaybackState(true);
-    erSetStatus(result.ok ? ('Playing: ' + name) : "Dispatched, but playback isn't showing as active - check plugin-fpp-EncoreRadio.log.");
+    erSetStatus(result.ok ? ('Playing: ' + name) : "Still not showing as active after 40s - this station may be slow or unreachable right now. Check plugin-fpp-EncoreRadio.log.");
     erRenderCustomstreamSaved();
   }
 
@@ -1242,8 +1242,24 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
   // actual exit code), so a quick check of api.php's headerIndicator
   // endpoint (the same one driving the top-bar icon) is what actually
   // confirms success/failure and gets a real status message.
+  // wantActive=true (Start) polls up to ~40s: real-world feedback was
+  // that this used to give up after just 1.6s (2 tries, 800ms apart),
+  // well before a real stream has actually connected - confirmed on
+  // real hardware that a perfectly healthy start (SomaFM test stream)
+  // takes ~5-7s end to end just for the LOCAL pipeline (relay connect,
+  // ffplay launch, volume settle), and a slower/flakier remote station
+  // can easily run longer than that. Giving up at 1.6s meant erStart()
+  // showed "isn't showing as active - check the log" while playback was
+  // still completely normally in progress - read as a failure message
+  // for something that was actually still working, which is exactly
+  // the "I thought it wasn't working" report this was built to fix.
+  // wantActive=false (Stop) keeps the original short window - stopping
+  // is never waiting on a remote connection, so there's nothing slow to
+  // poll for there.
   async function erCheckPlaybackState(wantActive) {
-    for (let i = 0; i < 2; i++) {
+    const tries = wantActive ? 20 : 2;
+    const intervalMs = wantActive ? 2000 : 800;
+    for (let i = 0; i < tries; i++) {
       try {
         const res = await fetch('/api/plugin/fpp-EncoreRadio/headerIndicator', { cache: 'no-store' });
         const j = await res.json();
@@ -1252,8 +1268,11 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
           erSyncHeaderIndicator(isActive ? j : null);
           return { ok: true, indicator: j };
         }
-      } catch (e) { /* retry once */ }
-      await new Promise(function (r) { setTimeout(r, 800); });
+      } catch (e) { /* retry */ }
+      if (wantActive && i > 0) {
+        erSetStatus("Still starting - some stations take longer to connect than others (" + (i * intervalMs / 1000) + "s so far)...");
+      }
+      await new Promise(function (r) { setTimeout(r, intervalMs); });
     }
     return { ok: false };
   }
@@ -1261,10 +1280,12 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
   // FPP core's own top-bar icon only repaints from api/system/status's
   // "systemonly" augmentation, which defaults to a 30s poll (see
   // SetSystemAugRefreshSeconds in fpp.js) - erCheckPlaybackState above
-  // already confirms the real state within ~1.6s of Start/Stop completing,
-  // so patch the icon immediately here instead of leaving the visitor
-  // looking at a stale one (present after Stop, or absent after Start)
-  // until that next poll happens to land. BuildPluginHeaderIndicator is the
+  // already confirms the real state (within ~1.6s for Stop; up to ~40s
+  // for Start, to actually cover a slow-to-connect stream rather than
+  // give up early), so patch the icon immediately here instead of
+  // leaving the visitor looking at a stale one (present after Stop, or
+  // absent after Start) until that next poll happens to land.
+  // BuildPluginHeaderIndicator is the
   // same global fpp.js uses for every plugin's icon, so this stays
   // pixel-identical to what the next real poll would render - this is
   // purely a "don't wait" optimization, not a second source of truth; that
@@ -1288,7 +1309,7 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
       erSetStatus("Not started - save failed: " + (saveResult.message || saveResult.status));
       return;
     }
-    erSetStatus("Starting - this can take a few seconds...");
+    erSetStatus("Starting - some sources connect in a few seconds, others take longer...");
     const res = await fetch(erUrl('start.php'), { method: 'POST', cache: 'no-store' });
     const j = await erReadJson(res);
     if (!j.ok) {
@@ -1300,7 +1321,7 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
       const label = result.indicator.tooltip ? result.indicator.tooltip.replace(/^Encore Radio: /, '') : '';
       erSetStatus(label ? ("Started: " + label) : "Started.");
     } else {
-      erSetStatus("Dispatched, but playback isn't showing as active - check plugin-fpp-EncoreRadio.log.");
+      erSetStatus("Still not showing as active after 40s - the source may be slow or unreachable right now. Check plugin-fpp-EncoreRadio.log.");
     }
   }
 
