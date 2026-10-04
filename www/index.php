@@ -207,29 +207,10 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
   <a href="#" id="er-onboarding-replay" class="small me-2"><i class="fas fa-fw fa-circle-play"></i> Replay walkthrough</a>
 </p>
 
-<div class="fppTableWrapper fppTableWrapperAsTable mb-3" id="er-fieldset-signup">
-  <div class="fppTableContents">
-    <table class="fppSelectableRowTable" style="width:100%;">
-      <thead>
-        <tr><th style="padding:12px 8px;"><span style="font-size:1.4rem;">📻 Sign Up &amp; Keep the Music Going</span></th></tr>
-      </thead>
-      <tbody>
-        <tr><td style="padding:8px;">
-          <p class="text-muted mb-2">
-            Pandora and Spotify include a free 10-hour trial - choose a
-            source below and get started, nothing to sign up for first.
-          </p>
-          <div class="d-flex gap-2 align-items-center flex-wrap">
-            <a href="https://www.christmasinboontontwp.com/encore-radio-signup" target="_blank" rel="noopener" class="er-btn">
-              <i class="fas fa-fw fa-bell"></i> Sign Up Today
-            </a>
-            <span class="text-muted small">for a reminder before your trial runs out - optional, takes 10 seconds.</span>
-          </div>
-        </td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+<p class="text-muted mb-3">
+  Pandora and Spotify include a free 10-hour trial - choose a source
+  below and get started, nothing to sign up for first.
+</p>
 
 <form id="erForm" onsubmit="return false;">
 <fieldset id="er-gate">
@@ -734,6 +715,9 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
             </button>
             <p class="small text-muted mt-2 mb-0">
               Paste your license key here once you have one.
+              <i class="fas fa-fw fa-bell"></i>
+              <a href="https://www.christmasinboontontwp.com/encore-radio-signup" target="_blank" rel="noopener">Sign up</a>
+              for an email reminder before your trial runs out - optional.
             </p>
           </td></tr>
         </tbody>
