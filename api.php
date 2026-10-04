@@ -58,25 +58,55 @@ function erStations() {
 
 // GET /api/plugin/fpp-EncoreRadio/headerIndicator
 function erHeaderIndicator() {
-    $stateFile = "/home/fpp/media/plugins/fpp-EncoreRadio/state/active.json";
-    if (!file_exists($stateFile)) {
-        return json(null);
+    $stateDir = "/home/fpp/media/plugins/fpp-EncoreRadio/state";
+    $stateFile = "{$stateDir}/active.json";
+
+    if (file_exists($stateFile)) {
+        $active = json_decode(@file_get_contents($stateFile), true);
+        if (is_array($active)) {
+            $label = trim((string)($active["label"] ?? ""));
+            $tooltip = $label !== "" ? "Encore Radio: {$label}" : "Encore Radio Playing";
+            return json(array(
+                "visible" => true,
+                "icon" => "fa-broadcast-tower",
+                "color" => "#1a6eb5",
+                "tooltip" => $tooltip,
+                "link" => "/plugin.php?plugin=fpp-EncoreRadio&page=www/index.php",
+                "animate" => "pulse"
+            ));
+        }
     }
 
-    $active = json_decode(@file_get_contents($stateFile), true);
-    if (!is_array($active)) {
-        return json(null);
+    // No confirmed-active source, but a Start may still be in progress -
+    // er_start_source.sh writes this the moment it starts (before the
+    // backend/relay/player are even dispatched), via an EXIT trap so it
+    // can never outlive the script that wrote it. Real user feedback:
+    // some stations take several seconds to connect, with nothing shown
+    // anywhere in the meantime it looks indistinguishable from broken -
+    // this is the one piece of feedback that exists at all for a Start
+    // triggered by an FPP Schedule entry rather than the plugin's own
+    // page (which has its own, more detailed JS-side status already).
+    $connectingFile = "{$stateDir}/connecting.json";
+    if (file_exists($connectingFile)) {
+        $connecting = json_decode(@file_get_contents($connectingFile), true);
+        if (is_array($connecting)) {
+            return json(array(
+                "visible" => true,
+                "icon" => "fa-circle-notch",
+                "color" => "#6c757d",
+                "tooltip" => "Encore Radio: connecting…",
+                "link" => "/plugin.php?plugin=fpp-EncoreRadio&page=www/index.php",
+                // FPP core's BuildPluginHeaderIndicator() applies this
+                // string directly as a CSS animation-name (`animate`
+                // isn't a special keyword) - "spin" isn't a real
+                // keyframe anywhere in FPP's own CSS and would have
+                // silently done nothing; "ajax-spin" (fpp.css) is a real
+                // 0->360deg rotation, confirmed against the actual
+                // current upstream source before using it.
+                "animate" => "ajax-spin"
+            ));
+        }
     }
 
-    $label = trim((string)($active["label"] ?? ""));
-    $tooltip = $label !== "" ? "Encore Radio: {$label}" : "Encore Radio Playing";
-
-    return json(array(
-        "visible" => true,
-        "icon" => "fa-broadcast-tower",
-        "color" => "#1a6eb5",
-        "tooltip" => $tooltip,
-        "link" => "/plugin.php?plugin=fpp-EncoreRadio&page=www/index.php",
-        "animate" => "pulse"
-    ));
+    return json(null);
 }
