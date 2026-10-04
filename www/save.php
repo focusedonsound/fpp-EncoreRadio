@@ -24,6 +24,22 @@ function erRespond($ok, $msg, $extra = []) {
   exit;
 }
 
+// Same reasoning as pandora_pianobar.sh's strip_crlf() (and now
+// lib_curl_secure.sh's er_curl_cfg_escape() backstop): any of these
+// fields can end up spliced into a generated config file - license_key
+// and spotify_clientId/clientSecret/playlistUri all eventually reach a
+// curl -K config body (er_premium_gate.sh, spotify_token.sh,
+// spotify_web.sh). A raw \r/\n in the value isn't just unescapable
+// there, it's a real injection: curl's own config parser splits on a
+// literal newline before it ever looks at quoting, so whatever follows
+// becomes a brand-new curl directive (confirmed with a local test
+// server: a value containing "...\noutput /some/path" made curl write
+// its response to that path). Stripped here, at the source, rather
+// than only relying on the bash-side backstop.
+function erStripCrlf($s) {
+  return str_replace(["\r", "\n"], "", $s);
+}
+
 function erDefaultConfig() {
   return [
     "source" => "",
@@ -72,7 +88,7 @@ if (file_exists($configFile)) {
 // emails - moved out of the plugin entirely, onto the license server's
 // own website; the plugin never collects or transmits it. See
 // er_premium_gate.sh for the matching trial-gate logic this mirrors.)
-$cfg["license"]["key"] = trim((string)($_POST["license_key"] ?? $cfg["license"]["key"]));
+$cfg["license"]["key"] = erStripCrlf(trim((string)($_POST["license_key"] ?? $cfg["license"]["key"])));
 
 // Pandora/Spotify/Rotation (premium) are unlocked by the free trial
 // (while it has hours left) or an existing license key - never by
@@ -215,12 +231,12 @@ if ($premiumUnlocked) {
   // refreshToken/tokenExpiresAt come from the OAuth callback, deviceName
   // from the installer, and array_replace_recursive above already preserved
   // all of those, so only overwrite the subset this form actually edits.
-  $cfg["spotify"]["clientId"] = trim((string)($_POST["spotify_clientId"] ?? $cfg["spotify"]["clientId"]));
-  $postedSecret = (string)($_POST["spotify_clientSecret"] ?? "");
+  $cfg["spotify"]["clientId"] = erStripCrlf(trim((string)($_POST["spotify_clientId"] ?? $cfg["spotify"]["clientId"])));
+  $postedSecret = erStripCrlf(trim((string)($_POST["spotify_clientSecret"] ?? "")));
   if ($postedSecret !== "" && $postedSecret !== "__unchanged__") {
     $cfg["spotify"]["clientSecret"] = $postedSecret;
   }
-  $cfg["spotify"]["playlistUri"] = trim((string)($_POST["spotify_playlistUri"] ?? $cfg["spotify"]["playlistUri"]));
+  $cfg["spotify"]["playlistUri"] = erStripCrlf(trim((string)($_POST["spotify_playlistUri"] ?? $cfg["spotify"]["playlistUri"])));
   $cfg["spotify"]["playlistName"] = trim((string)($_POST["spotify_playlistName"] ?? $cfg["spotify"]["playlistName"]));
 }
 // else: leave $cfg["pandora"]/$cfg["spotify"] exactly as loaded - trial

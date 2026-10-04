@@ -15,10 +15,26 @@
 # Escapes a value for safe embedding inside a double-quoted curl -K
 # config string. Backslash first - escaping it after the quote would
 # double-escape the quote's own leading backslash.
+#
+# Also strips \r/\n - not escapes, strips. Confirmed empirically (not
+# just suspected) that curl's config-file parser splits on a literal
+# newline BEFORE it ever looks at quoting: a value containing one
+# truncates at that point and whatever follows becomes a brand new
+# config directive, quote or no quote. Reported finding: a license key
+# of "abc<newline>output /some/path<newline>#" made curl write the
+# server's response to that path - verified with a local test server
+# (the POST body curl actually sent was cut off exactly at the
+# newline). save.php is the primary fix (strips \r/\n from every field
+# that lands here before it ever reaches this function) - this is the
+# backstop for any value that reaches here anyway, including values
+# this codebase doesn't fully control itself (an OAuth token/response
+# field, for instance).
 er_curl_cfg_escape() {
     local s="$1"
     s="${s//\\/\\\\}"
     s="${s//\"/\\\"}"
+    s="${s//$'\r'/}"
+    s="${s//$'\n'/}"
     printf '%s' "$s"
 }
 
