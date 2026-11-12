@@ -107,7 +107,7 @@ cmd_check() {
         exit 0
     fi
 
-    echo "Trial hours used up. Enter a license key on the Encore Radio page to keep using Pandora or Spotify."
+    echo "Trial hours used up. Enter a license key on the Encore Radio page to keep using Pandora, SiriusXM, or Spotify."
     exit 1
 }
 

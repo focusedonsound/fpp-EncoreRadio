@@ -23,6 +23,16 @@ Every source converges on PulseAudio:
 - **Pandora**: [Pianobar](https://github.com/PromyLOPh/pianobar) plays into
   a dedicated PulseAudio null-sink, whose monitor feeds the same local
   relay.
+- **SiriusXM** (premium, Alpha): [aiosxm](https://github.com/MizterB/aiosxm),
+  installed into its own Python venv, runs as a loopback HTTP proxy that logs
+  in with the subscriber's credentials and re-serves the chosen channel as a
+  standard AES-128 HLS playlist. `scripts/er_sxm_proxy.sh` manages that proxy's
+  lifecycle; the backend then hands the relay that playlist URL, so ffmpeg
+  decrypts and re-streams it exactly like the TuneIn URL path - no null-sink
+  capture needed, since the audio stays in the HLS/ffmpeg path the whole way.
+  Requires Python 3.12+ (current FPP 10.x/Trixie has 3.13); older/32-bit boxes
+  are unsupported and the proxy simply isn't installed there. Uses an
+  unofficial SiriusXM API - see `docs/configuration.md` for the Alpha caveats.
 - **Spotify** (premium, along with Pandora): [Raspotify](https://github.com/dtcooper/raspotify)
   runs as its own permanent system service (not tied to Encore Radio's
   Start/Stop), configured to output directly to PulseAudio. No relay
@@ -109,7 +119,7 @@ this, the announcement would have played over the stream at full volume).
 
 A custom stream URL, a network share, TuneIn, Source Fallback, and basic
 announcement scheduling are always free, no sign-up of any kind.
-Pandora, Spotify, and Source Rotation are unlocked by a free
+Pandora, SiriusXM, Spotify, and Source Rotation are unlocked by a free
 10-cumulative-hour trial (see `www/save.php`'s `$premiumUnlocked`) -
 nothing to enter, nothing sent anywhere, just pick one as your source.
 Once the trial's hours are used up, a license key is required to keep
@@ -118,8 +128,8 @@ using them.
 ## License gating
 
 The trial (while it has hours left) or a license key unlocks the
-premium UI/config; separately, Pandora/Spotify playback itself checks
-for a valid trial or license before starting
+premium UI/config; separately, Pandora/SiriusXM/Spotify playback itself
+checks for a valid trial or license before starting
 (`scripts/er_premium_gate.sh`), off a purely local counter - the
 plugin never sends anything to start or extend the trial itself. A
 link on the settings page to an optional sign-up page on the author's

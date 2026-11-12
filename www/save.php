@@ -52,6 +52,7 @@ function erDefaultConfig() {
     "fallback" => ["enabled" => false, "chain" => []],
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
+    "siriusxm" => ["username" => "", "password" => "", "channel" => "", "channelName" => "", "proxyPort" => 8124, "bitrate" => "128k"],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
     "license" => ["key" => ""],
@@ -110,10 +111,10 @@ function erTrialSecondsRemaining() {
 $premiumUnlocked = erTrialSecondsRemaining() > 0 || $cfg["license"]["key"] !== "";
 
 $source = trim((string)($_POST["source"] ?? ""));
-if (!in_array($source, ["", "customstream", "netshare", "tunein", "pandora", "spotify"], true)) {
+if (!in_array($source, ["", "customstream", "netshare", "tunein", "pandora", "siriusxm", "spotify"], true)) {
   erRespond(false, "Invalid source: $source");
 }
-if (in_array($source, ["pandora", "spotify"], true) && !$premiumUnlocked) {
+if (in_array($source, ["pandora", "siriusxm", "spotify"], true) && !$premiumUnlocked) {
   // Keep whatever source was already configured - don't let a locked
   // source slip through even if the client-side disabled radio was
   // bypassed.
@@ -227,6 +228,31 @@ if ($premiumUnlocked) {
   $cfg["pandora"]["stationId"]   = trim((string)($_POST["pandora_stationId"] ?? $cfg["pandora"]["stationId"]));
   $cfg["pandora"]["stationName"] = trim((string)($_POST["pandora_stationName"] ?? $cfg["pandora"]["stationName"]));
 
+  // SiriusXM (premium tier) - subscriber credentials + a channel (a plain
+  // SiriusXM channel NUMBER, or a name; resolved against the live channel
+  // list at play time by scripts/er_sxm_proxy.sh). Password uses the same
+  // masked "__unchanged__" convention as Pandora so the real secret never
+  // round-trips to the browser just to redisplay the field.
+  $cfg["siriusxm"]["username"] = trim((string)($_POST["siriusxm_username"] ?? $cfg["siriusxm"]["username"]));
+  $postedSxmPassword = (string)($_POST["siriusxm_password"] ?? "");
+  if ($postedSxmPassword !== "" && $postedSxmPassword !== "__unchanged__") {
+    $cfg["siriusxm"]["password"] = $postedSxmPassword;
+  }
+  $cfg["siriusxm"]["channel"]     = trim((string)($_POST["siriusxm_channel"] ?? $cfg["siriusxm"]["channel"]));
+  // channelName is just a friendly label for the header indicator / status;
+  // defaults to the channel the operator typed when left blank.
+  $postedSxmName = trim((string)($_POST["siriusxm_channelName"] ?? $cfg["siriusxm"]["channelName"]));
+  $cfg["siriusxm"]["channelName"] = $postedSxmName !== "" ? $postedSxmName : $cfg["siriusxm"]["channel"];
+  // Proxy port: loopback only, digits, kept clear of the relay's own 8123.
+  $postedSxmPort = (int)($_POST["siriusxm_proxyPort"] ?? $cfg["siriusxm"]["proxyPort"]);
+  if ($postedSxmPort >= 1024 && $postedSxmPort <= 65535 && $postedSxmPort !== 8123) {
+    $cfg["siriusxm"]["proxyPort"] = $postedSxmPort;
+  }
+  $postedSxmBitrate = trim((string)($_POST["siriusxm_bitrate"] ?? $cfg["siriusxm"]["bitrate"]));
+  if (in_array($postedSxmBitrate, ["32k", "64k", "96k", "128k", "256k"], true)) {
+    $cfg["siriusxm"]["bitrate"] = $postedSxmBitrate;
+  }
+
   // Spotify (premium tier) - only the form-editable fields; accessToken/
   // refreshToken/tokenExpiresAt come from the OAuth callback, deviceName
   // from the installer, and array_replace_recursive above already preserved
@@ -242,7 +268,7 @@ if ($premiumUnlocked) {
 // else: leave $cfg["pandora"]/$cfg["spotify"] exactly as loaded - trial
 // exhausted and no license key, so none of this is accepted yet.
 
-$validSources = ["customstream", "netshare", "tunein", "pandora", "spotify"];
+$validSources = ["customstream", "netshare", "tunein", "pandora", "siriusxm", "spotify"];
 
 if ($premiumUnlocked) {
   // Rotation (premium) - entries are built client-side into a JSON array

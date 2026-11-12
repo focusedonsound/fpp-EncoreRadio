@@ -8,7 +8,7 @@ separately, in `trial_state.json` in the same directory - see the
 
 | Key | Description |
 |---|---|
-| `source` | `customstream`, `netshare`, `tunein`, `pandora`, or `spotify` |
+| `source` | `customstream`, `netshare`, `tunein`, `pandora`, `siriusxm`, or `spotify` |
 | `volume` | 0-100, applied to whichever source is playing |
 | `audioNormalize` | Off by default. Evens out loudness differences between stations/streams (ffmpeg `dynaudnorm`), at some CPU cost. Takes effect on the next Start or station switch, not live. |
 | `relay.port` | Local port the custom-stream/network-share/TuneIn/Pandora relay listens on (default 8123) |
@@ -23,6 +23,11 @@ separately, in `trial_state.json` in the same directory - see the
 | `fallback.chain` | Ordered array of source names to try in sequence, e.g. `["spotify", "pandora", "tunein", "netshare"]` |
 | `tunein.stationId` / `stationName` / `streamUrl` | Set by the station search picker |
 | `pandora.username` / `password` / `stationId` / `stationName` | Pandora account + chosen station |
+| `siriusxm.username` / `password` | **Premium, Alpha.** Your SiriusXM subscriber login. Stored plaintext (mode 600), passed to the bundled [aiosxm](https://github.com/MizterB/aiosxm) proxy via the environment, never on a command line. |
+| `siriusxm.channel` | A SiriusXM channel **number** (as in the SiriusXM app) or a channel name - resolved to the live channel at Start time |
+| `siriusxm.channelName` | Friendly label only (header/status); defaults to `channel` |
+| `siriusxm.proxyPort` | Loopback port the aiosxm proxy listens on (default 8124; must differ from `relay.port`) |
+| `siriusxm.bitrate` | Upstream pull quality: `32k`/`64k`/`96k`/`128k`/`256k` (default `128k` - the relay re-encodes to 128k MP3 anyway) |
 | `spotify.clientId` / `clientSecret` | Your own Spotify Developer App credentials |
 | `spotify.accessToken` / `refreshToken` / `tokenExpiresAt` | Set by the OAuth flow - don't edit directly |
 | `spotify.playlistUri` / `playlistName` | Set by the playlist search picker |
@@ -32,7 +37,7 @@ separately, in `trial_state.json` in the same directory - see the
 | `announce.mode` | `cadence` (every N minutes) or `times` (specific HH:MM times) |
 | `announce.cadenceMinutes` / `times` | The schedule itself |
 | `license.email` / `key` | Set via the License section |
-| `trial_state.json`: `trialSecondsUsed` | Separate file, same directory - cumulative Pandora **and** Spotify playback time counted against the 10-hour trial (TuneIn never counts), only ever written by `er_track_usage.sh` |
+| `trial_state.json`: `trialSecondsUsed` | Separate file, same directory - cumulative Pandora, SiriusXM **and** Spotify playback time counted against the 10-hour trial (the free sources never count), only ever written by `er_track_usage.sh` |
 | `ui.onboardingSeen` / `onboardingTourEnabled` | First-run guided tour state |
 
 ## FPP Commands
@@ -81,3 +86,33 @@ Add these to FPP's own Scheduler (Content Setup > Scheduler):
 5. Search for and pick a playlist.
 
 Both setup steps are one-time only.
+
+## SiriusXM setup (premium - Alpha)
+
+> **Alpha / use at your own risk.** SiriusXM playback uses the unofficial,
+> open-source [aiosxm](https://github.com/MizterB/aiosxm) project, which talks
+> to SiriusXM's private web API. SiriusXM can change or break it at any time,
+> and using it may be against SiriusXM's terms of service. It is for **personal
+> use** with **your own active SiriusXM subscription** only. Unlike Pandora or
+> Spotify there is no second device involved - the stream is logged in and
+> relayed entirely on the FPP box.
+
+**Requirements:** a 64-bit system with **Python 3.12 or newer** - current
+FPP 10.x (Debian 13 Trixie) ships Python 3.13, so it works out of the box.
+Older FPP 9.x or 32-bit systems don't have a new enough Python and are not
+supported yet; the Encore Radio page shows a notice when the backend is
+unavailable on your box.
+
+1. On the Encore Radio page, pick **SiriusXM** as the source.
+2. Enter your SiriusXM **username/email** and **password**.
+3. Enter the **channel** - either its number (as shown in the SiriusXM app,
+   e.g. `2`) or its name (e.g. `SiriusXM Hits 1`). It's matched against the
+   live channel list the first time you Start; if it can't be matched, the
+   available channel names are written to the Encore Radio log.
+4. Save. Then Start (or schedule a Start) as with any other source.
+
+How it works: the plugin installs aiosxm into its own Python virtual
+environment and, on Start, runs it as a loopback proxy that re-serves your
+chosen channel as a standard AES-128 HLS stream; the normal relay reads and
+re-streams that exactly like any other station. A live channel picker (instead
+of typing the number/name) is planned for a later release.

@@ -56,6 +56,13 @@ fi
 
 "${HERE}/er_relay.sh" stop >/dev/null 2>&1 || true
 
+# SiriusXM: the aiosxm proxy daemon feeds the relay a loopback HLS URL -
+# stop it so it isn't left logged in and holding its port after playback
+# ends. Keyed off its pid file so this is a no-op when SiriusXM wasn't used.
+if [[ -f "${STATE_DIR}/aiosxm.pid" ]]; then
+    bash "${HERE}/er_sxm_proxy.sh" stop >/dev/null 2>&1 || true
+fi
+
 # Network Share reads the share via smbclient in a background batch
 # scheduler (see netshare_batch_scheduler.sh) rather than a kernel mount -
 # nothing to unmount, but the scheduler and its local staging directory
@@ -80,7 +87,7 @@ if [[ "$ACTIVE_SOURCE" == "spotify" ]]; then
     fi
 fi
 
-if [[ "$ACTIVE_SOURCE" == "spotify" || "$ACTIVE_SOURCE" == "pandora" ]]; then
+if [[ "$ACTIVE_SOURCE" == "spotify" || "$ACTIVE_SOURCE" == "pandora" || "$ACTIVE_SOURCE" == "siriusxm" ]]; then
     bash "${HERE}/er_track_usage.sh" finalize
 fi
 
