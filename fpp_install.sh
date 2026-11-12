@@ -348,11 +348,13 @@ except Exception:
 # SiriusXM (premium) backend: aiosxm is a small Python asyncio proxy that
 # logs in with the subscriber's credentials and re-serves each channel as a
 # plain loopback AES-128 HLS playlist (see scripts/er_sxm_proxy.sh). It needs
-# Python >= 3.12. Current FPP 10.x (Debian 13 Trixie) ships Python 3.13, so a
-# plain venv from the system python works; older boxes (FPP 9.x, Python 3.11)
-# have no 3.12 and get a graceful skip - SiriusXM is simply unavailable there,
-# exactly like the Raspotify armhf gate for Spotify. (A future enhancement can
-# add a uv-provisioned standalone 3.12 for those older boxes.)
+# Python >= 3.12. Current FPP 10.x (Debian 13 Trixie) ships Python 3.13 on both
+# 64- and 32-bit ARM, so a plain venv from the system python works everywhere
+# that matters (aiosxm is pure Python; aiohttp publishes cp313 armv7 wheels, so
+# nothing has to compile even on a 32-bit Pi - verified on a Pi 3B+/armhf).
+# Older boxes (FPP 9.x, Python 3.11) have no 3.12 and get a graceful skip -
+# SiriusXM is simply unavailable there. (A future enhancement can add a
+# uv-provisioned standalone 3.12 for those older boxes.)
 #
 # Pinned to a known-good version: aiosxm talks to SiriusXM's private web API,
 # which can change, so an unattended upgrade is NOT wanted - bump this

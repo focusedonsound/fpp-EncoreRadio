@@ -97,11 +97,11 @@ Both setup steps are one-time only.
 > Spotify there is no second device involved - the stream is logged in and
 > relayed entirely on the FPP box.
 
-**Requirements:** a 64-bit system with **Python 3.12 or newer** - current
-FPP 10.x (Debian 13 Trixie) ships Python 3.13, so it works out of the box.
-Older FPP 9.x or 32-bit systems don't have a new enough Python and are not
-supported yet; the Encore Radio page shows a notice when the backend is
-unavailable on your box.
+**Requirements:** **Python 3.12 or newer** - current FPP 10.x (Debian 13
+Trixie) ships Python 3.13, so it works out of the box on both 64-bit and
+32-bit ARM (aiosxm is pure Python and aiohttp publishes armv7 wheels). Older
+systems with Python 3.11 or earlier (e.g. FPP 9.x) are not supported yet; the
+Encore Radio page shows a notice when the backend is unavailable on your box.
 
 1. On the Encore Radio page, pick **SiriusXM** as the source.
 2. Enter your SiriusXM **username/email** and **password**.

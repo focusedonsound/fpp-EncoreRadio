@@ -30,8 +30,9 @@ Every source converges on PulseAudio:
   lifecycle; the backend then hands the relay that playlist URL, so ffmpeg
   decrypts and re-streams it exactly like the TuneIn URL path - no null-sink
   capture needed, since the audio stays in the HLS/ffmpeg path the whole way.
-  Requires Python 3.12+ (current FPP 10.x/Trixie has 3.13); older/32-bit boxes
-  are unsupported and the proxy simply isn't installed there. Uses an
+  Requires Python 3.12+ (current FPP 10.x/Trixie has 3.13, on 32- and 64-bit
+  alike); boxes with Python 3.11 or older are unsupported and the proxy simply
+  isn't installed there. Uses an
   unofficial SiriusXM API - see `docs/configuration.md` for the Alpha caveats.
 - **Spotify** (premium, along with Pandora): [Raspotify](https://github.com/dtcooper/raspotify)
   runs as its own permanent system service (not tied to Encore Radio's

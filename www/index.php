@@ -399,9 +399,9 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
                 <p class="text-danger">
                   <i class="fas fa-fw fa-triangle-exclamation"></i>
                   The SiriusXM backend (aiosxm) isn't installed on this box - this
-                  usually means the architecture or Python version isn't supported
-                  (SiriusXM needs a 64-bit system with Python 3.12+, i.e. current
-                  FPP 10.x), or the install step failed. Check the install log.
+                  usually means the Python version isn't supported (SiriusXM needs
+                  Python 3.12+, i.e. current FPP 10.x), or the install step failed.
+                  Check the install log.
                   SiriusXM won't play until this is resolved.
                 </p>
               <?php endif; ?>
@@ -411,9 +411,9 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
                 active SiriusXM subscription. This uses an <em>unofficial</em>
                 SiriusXM connection (the open-source <a href="https://github.com/MizterB/aiosxm" target="_blank">aiosxm</a>
                 project) that SiriusXM can change or break at any time, and that
-                may be against SiriusXM's terms of use. Personal use only. Needs a
-                64-bit box with Python 3.12+ (current FPP 10.x); older/32-bit
-                systems aren't supported yet.
+                may be against SiriusXM's terms of use. Personal use only. Needs
+                Python 3.12+ (current FPP 10.x ships 3.13, 32- or 64-bit);
+                systems with Python 3.11 or older aren't supported yet.
               </p>
               <table style="width:100%; max-width:520px;">
                 <tr>
