@@ -7,7 +7,7 @@
 # swaps sources on a schedule, fallback swaps sources when one dies, and
 # both need exactly this same "start source X" primitive.
 #
-# Usage: er_start_source.sh <customstream|netshare|tunein|pandora|spotify>
+# Usage: er_start_source.sh <customstream|netshare|tunein|pandora|siriusxm|spotify>
 # Exit 0 on success (and writes the state/active.json header-indicator
 # marker), nonzero if that source failed to start.
 
@@ -83,13 +83,15 @@ trap clear_connecting_marker EXIT
 printf '{"source": "%s"}\n' "$SOURCE" > "$CONNECTING_FILE" 2>/dev/null || true
 
 case "$SOURCE" in
-    customstream|netshare|tunein|pandora)
+    customstream|netshare|tunein|pandora|siriusxm)
         if [[ "$SOURCE" == "customstream" ]]; then
             bash "${PLUGIN_DIR}/scripts/backends/customstream_stream.sh"
         elif [[ "$SOURCE" == "netshare" ]]; then
             bash "${PLUGIN_DIR}/scripts/backends/netshare_folder.sh"
         elif [[ "$SOURCE" == "tunein" ]]; then
             bash "${PLUGIN_DIR}/scripts/backends/tunein_stream.sh"
+        elif [[ "$SOURCE" == "siriusxm" ]]; then
+            bash "${PLUGIN_DIR}/scripts/backends/siriusxm_aiosxm.sh"
         else
             bash "${PLUGIN_DIR}/scripts/backends/pandora_pianobar.sh"
         fi
@@ -131,6 +133,7 @@ labels = {
     'netshare': (cfg.get('netshare', {}).get('folder') or 'Network Share'),
     'tunein': (cfg.get('tunein', {}).get('stationName') or 'TuneIn'),
     'pandora': (cfg.get('pandora', {}).get('stationName') or 'Pandora'),
+    'siriusxm': (cfg.get('siriusxm', {}).get('channelName') or cfg.get('siriusxm', {}).get('channel') or 'SiriusXM'),
     'spotify': (cfg.get('spotify', {}).get('playlistName') or 'Spotify'),
 }
 active = {'source': '$SOURCE', 'label': labels.get('$SOURCE', '$SOURCE')}

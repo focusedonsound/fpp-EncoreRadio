@@ -63,6 +63,10 @@ $aaSlots = $aaStatus["slots"];
 $aaInstalled = $aaStatus["installed"];
 $spotifyConnected = trim((string)$cfg["spotify"]["refreshToken"]) !== "";
 $raspotifyInstalled = file_exists("/usr/bin/librespot");
+// SiriusXM (premium, Alpha) runs the aiosxm proxy from its own venv - absent
+// when the box's architecture/Python is unsupported, or the install's pip
+// step failed. Mirrors $raspotifyInstalled for the Spotify card.
+$aiosxmInstalled = file_exists("/home/fpp/media/plugindata/fpp-EncoreRadio/aiosxm-venv/bin/aiosxm-proxy");
 
 $hasLicenseKey = trim((string)$cfg["license"]["key"]) !== "";
 $trialSecondsUsed = erLoadTrialSecondsUsed("/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json");
@@ -246,6 +250,10 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
                   <label class="form-check-label" for="er-source-pandora"><strong>Pandora</strong> <span class="text-muted small">- premium<?php echo $premiumUnlocked ? "" : " (trial used up - enter a license key below to unlock)"; ?></span></label>
                 </div>
                 <div class="form-check">
+                  <input class="form-check-input" type="radio" name="source" id="er-source-siriusxm" value="siriusxm" <?php echo $cfg["source"] === "siriusxm" ? "checked" : ""; ?> <?php echo $premiumUnlocked ? "" : "disabled"; ?> />
+                  <label class="form-check-label" for="er-source-siriusxm"><strong>SiriusXM</strong> <span class="er-pill" style="background-color:var(--bs-secondary, #6c757d);">Alpha</span> <span class="text-muted small">- premium<?php echo $premiumUnlocked ? "" : " (trial used up - enter a license key below to unlock)"; ?></span></label>
+                </div>
+                <div class="form-check">
                   <input class="form-check-input" type="radio" name="source" id="er-source-spotify" value="spotify" <?php echo $cfg["source"] === "spotify" ? "checked" : ""; ?> <?php echo $premiumUnlocked ? "" : "disabled"; ?> />
                   <label class="form-check-label" for="er-source-spotify"><strong>Spotify</strong> <span class="text-muted small">- premium<?php echo $premiumUnlocked ? "" : " (trial used up - enter a license key below to unlock)"; ?></span></label>
                 </div>
@@ -373,6 +381,77 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
                 Station ID is the number from your Pandora station's URL. Pianobar
                 prints available station IDs to the Encore Radio log on first login
                 if you're not sure which to use.
+              </p>
+              </fieldset>
+            </td>
+          </tr>
+
+          <tr id="er-siriusxm-section" style="display:none;">
+            <td colspan="2" style="padding:8px;">
+              <fieldset <?php echo $premiumUnlocked ? "" : "disabled"; ?> style="<?php echo $premiumUnlocked ? "" : "opacity:0.55;"; ?> border:0; padding:0; margin:0;">
+              <?php if (!$premiumUnlocked): ?>
+                <p class="small text-warning">
+                  <i class="fas fa-fw fa-lock"></i>
+                  Your 10-hour trial is used up - enter a license key below to keep using SiriusXM.
+                </p>
+              <?php endif; ?>
+              <?php if (!$aiosxmInstalled): ?>
+                <p class="text-danger">
+                  <i class="fas fa-fw fa-triangle-exclamation"></i>
+                  The SiriusXM backend (aiosxm) isn't installed on this box - this
+                  usually means the Python version isn't supported (SiriusXM needs
+                  Python 3.12+, i.e. current FPP 10.x), or the install step failed.
+                  Check the install log.
+                  SiriusXM won't play until this is resolved.
+                </p>
+              <?php endif; ?>
+              <p class="small text-warning mb-2">
+                <i class="fas fa-fw fa-flask"></i>
+                <strong>Alpha - use at your own risk.</strong>
+                Requires your own active SiriusXM subscription.
+                Please <a href="https://github.com/focusedonsound/fpp-EncoreRadio/issues" target="_blank">report any and all bugs here</a> - thank you!
+              </p>
+              <table style="width:100%; max-width:520px;">
+                <tr>
+                  <td class="py-1">SiriusXM Username / Email</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="siriusxm_username" value="<?php echo htmlspecialchars($cfg["siriusxm"]["username"]); ?>" /></td>
+                </tr>
+                <tr>
+                  <td class="py-1">SiriusXM Password</td>
+                  <td class="py-1">
+                    <div class="d-flex gap-2 align-items-center">
+                      <input type="password" class="form-control form-control-sm" name="siriusxm_password" id="er-siriusxm-password"
+                             value="<?php echo $cfg["siriusxm"]["password"] !== "" ? "__unchanged__" : ""; ?>" />
+                      <button type="button" class="er-btn er-btn-secondary" onclick="erToggleSiriusxmPassword()"><i class="fas fa-fw fa-eye"></i> Show</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-1">Channel</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="siriusxm_channel" placeholder="e.g. 2  (or a name like SiriusXM Hits 1)" value="<?php echo htmlspecialchars($cfg["siriusxm"]["channel"]); ?>" /></td>
+                </tr>
+                <tr>
+                  <td class="py-1">Channel Name (label only)</td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="siriusxm_channelName" value="<?php echo htmlspecialchars($cfg["siriusxm"]["channelName"]); ?>" /></td>
+                </tr>
+                <tr>
+                  <td class="py-1">Audio Quality</td>
+                  <td class="py-1">
+                    <select class="form-select form-select-sm" name="siriusxm_bitrate">
+                      <?php foreach (["256k" => "High (256k)", "128k" => "Standard (128k)", "96k" => "Low (96k)", "64k" => "Data Saver (64k)", "32k" => "Minimal (32k)"] as $bv => $bl): ?>
+                        <option value="<?php echo $bv; ?>" <?php echo ($cfg["siriusxm"]["bitrate"] === $bv) ? "selected" : ""; ?>><?php echo $bl; ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </td>
+                </tr>
+              </table>
+              <input type="hidden" name="siriusxm_proxyPort" value="<?php echo (int)$cfg["siriusxm"]["proxyPort"]; ?>" />
+              <p class="small text-muted mt-2 mb-0">
+                <i class="fas fa-fw fa-circle-info"></i>
+                Enter the SiriusXM <strong>channel number</strong> (as shown in the
+                SiriusXM app) or the channel's name. If it can't be matched, the
+                exact channel name is listed in the Encore Radio log the first time
+                you Start. A live channel picker is coming in a later release.
               </p>
               </fieldset>
             </td>
@@ -640,6 +719,7 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
               "netshare" => "Network Share",
               "tunein" => "TuneIn",
               "pandora" => "Pandora",
+              "siriusxm" => "SiriusXM",
               "spotify" => "Spotify",
             ];
             $chain = $cfg["fallback"]["chain"];
@@ -765,6 +845,7 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
     document.getElementById('er-netshare-section').style.display = (val === 'netshare') ? 'table-row' : 'none';
     document.getElementById('er-tunein-section').style.display = (val === 'tunein') ? 'table-row' : 'none';
     document.getElementById('er-pandora-section').style.display = (val === 'pandora') ? 'table-row' : 'none';
+    document.getElementById('er-siriusxm-section').style.display = (val === 'siriusxm') ? 'table-row' : 'none';
     document.getElementById('er-spotify-section').style.display = (val === 'spotify') ? 'table-row' : 'none';
   }
   document.querySelectorAll('input[name="source"]').forEach(function (el) {
@@ -850,7 +931,7 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
   ];
   var ER_ROTATION_SOURCES = [
     ['customstream', 'Internet Radio (URL)'], ['netshare', 'Network Share'],
-    ['tunein', 'TuneIn'], ['pandora', 'Pandora'], ['spotify', 'Spotify']
+    ['tunein', 'TuneIn'], ['pandora', 'Pandora'], ['siriusxm', 'SiriusXM'], ['spotify', 'Spotify']
   ];
 
   function erRenderRotationRows() {
@@ -1139,6 +1220,12 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
 
   function erTogglePassword() {
     const el = document.getElementById('er-pandora-password');
+    if (el.value === '__unchanged__') el.value = '';
+    el.type = (el.type === 'password') ? 'text' : 'password';
+  }
+
+  function erToggleSiriusxmPassword() {
+    const el = document.getElementById('er-siriusxm-password');
     if (el.value === '__unchanged__') el.value = '';
     el.type = (el.type === 'password') ? 'text' : 'password';
   }

@@ -159,7 +159,10 @@ install_pkgs_if_missing() {
   # jq/python3: JSON config helpers, matches AA's convention
   # smbclient: reads the Network Share (SMB) source through a user-space
   # client, not a kernel mount - see netshare_folder.sh for why.
-  local static_pkgs=(ffmpeg pianobar pulseaudio-utils libasound2-plugins curl python3 jq smbclient)
+  # python3-venv: the SiriusXM (premium) backend runs the aiosxm proxy from
+  # its own venv (see install_aiosxm_if_needed) - `python3 -m venv` needs this
+  # package on Debian/Ubuntu (it carries ensurepip). Harmless everywhere else.
+  local static_pkgs=(ffmpeg pianobar pulseaudio-utils libasound2-plugins curl python3 python3-venv jq smbclient)
   install_pkg_batch_if_missing static_pkgs
 
   # Audio-backend choice, decided at runtime rather than declared
@@ -340,6 +343,66 @@ except Exception:
   systemctl daemon-reload
 
   log "Raspotify installed. One-time pairing still needed (see plugin page)."
+}
+
+# SiriusXM (premium) backend: aiosxm is a small Python asyncio proxy that
+# logs in with the subscriber's credentials and re-serves each channel as a
+# plain loopback AES-128 HLS playlist (see scripts/er_sxm_proxy.sh). It needs
+# Python >= 3.12. Current FPP 10.x (Debian 13 Trixie) ships Python 3.13 on both
+# 64- and 32-bit ARM, so a plain venv from the system python works everywhere
+# that matters (aiosxm is pure Python; aiohttp publishes cp313 armv7 wheels, so
+# nothing has to compile even on a 32-bit Pi - verified on a Pi 3B+/armhf).
+# Older boxes (FPP 9.x, Python 3.11) have no 3.12 and get a graceful skip -
+# SiriusXM is simply unavailable there. (A future enhancement can add a
+# uv-provisioned standalone 3.12 for those older boxes.)
+#
+# Pinned to a known-good version: aiosxm talks to SiriusXM's private web API,
+# which can change, so an unattended upgrade is NOT wanted - bump this
+# deliberately after testing a new release against a live account.
+AIOSXM_VERSION="0.3.1"
+install_aiosxm_if_needed() {
+  local venv_dir="${CFG_DIR}/aiosxm-venv"
+  local proxy_bin="${venv_dir}/bin/aiosxm-proxy"
+
+  if [[ -x "$proxy_bin" ]]; then
+    log "aiosxm (SiriusXM backend) already installed."
+    chown -R fpp:fpp "$venv_dir" 2>/dev/null || true
+    return 0
+  fi
+
+  # Find a Python >= 3.12 - prefer an explicitly-versioned interpreter, then
+  # fall back to plain python3 if it's new enough.
+  local py="" cand
+  for cand in python3.13 python3.12 python3; do
+    command -v "$cand" >/dev/null 2>&1 || continue
+    if "$cand" -c 'import sys; sys.exit(0 if sys.version_info[:2] >= (3,12) else 1)' 2>/dev/null; then
+      py="$cand"
+      break
+    fi
+  done
+  if [[ -z "$py" ]]; then
+    log "NOTE: no Python >= 3.12 on this box - SiriusXM (premium) backend will be unavailable here. TuneIn/Pandora/Spotify are unaffected."
+    return 0
+  fi
+
+  log "Creating aiosxm venv with ${py} ($(${py} --version 2>&1))…"
+  if ! "$py" -m venv "$venv_dir" 2>&1; then
+    log "WARNING: could not create the aiosxm venv (is python3-venv installed?) - SiriusXM backend unavailable."
+    rm -rf "$venv_dir" 2>/dev/null || true
+    return 0
+  fi
+
+  # Inside a venv, pip is not externally-managed (PEP 668), so this needs no
+  # --break-system-packages. --no-input so a prompt can never hang install.
+  "${venv_dir}/bin/pip" install --quiet --no-input --upgrade pip >/dev/null 2>&1 || true
+  if ! "${venv_dir}/bin/pip" install --quiet --no-input "aiosxm==${AIOSXM_VERSION}" 2>&1; then
+    log "WARNING: 'pip install aiosxm==${AIOSXM_VERSION}' failed - SiriusXM backend unavailable (network issue, or that version isn't on PyPI). Pandora/Spotify/TuneIn are unaffected."
+    rm -rf "$venv_dir" 2>/dev/null || true
+    return 0
+  fi
+
+  chown -R fpp:fpp "$venv_dir" 2>/dev/null || true
+  log "aiosxm ${AIOSXM_VERSION} installed (SiriusXM premium backend ready)."
 }
 
 ensure_users_in_audio_group() {
@@ -587,6 +650,14 @@ seed_default_config_if_missing() {
     "stationId": "",
     "stationName": ""
   },
+  "siriusxm": {
+    "username": "",
+    "password": "",
+    "channel": "",
+    "channelName": "",
+    "proxyPort": 8124,
+    "bitrate": "128k"
+  },
   "spotify": {
     "clientId": "",
     "clientSecret": "",
@@ -716,6 +787,7 @@ main() {
   setup_system_pulseaudio_if_needed
   seed_default_config_if_missing
   install_raspotify_if_needed
+  install_aiosxm_if_needed
 
   bash "${here}/scripts/er_sync_spotify_service.sh" 2>&1 || true
 
