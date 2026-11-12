@@ -407,13 +407,9 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
               <?php endif; ?>
               <p class="small text-warning mb-2">
                 <i class="fas fa-fw fa-flask"></i>
-                <strong>Alpha - use at your own risk.</strong> Requires your own
-                active SiriusXM subscription. This uses an <em>unofficial</em>
-                SiriusXM connection (the open-source <a href="https://github.com/MizterB/aiosxm" target="_blank">aiosxm</a>
-                project) that SiriusXM can change or break at any time, and that
-                may be against SiriusXM's terms of use. Personal use only. Needs
-                Python 3.12+ (current FPP 10.x ships 3.13, 32- or 64-bit);
-                systems with Python 3.11 or older aren't supported yet.
+                <strong>Alpha - use at your own risk.</strong>
+                Requires your own active SiriusXM subscription.
+                Please <a href="https://github.com/focusedonsound/fpp-EncoreRadio/issues" target="_blank">report any and all bugs here</a> - thank you!
               </p>
               <table style="width:100%; max-width:520px;">
                 <tr>
