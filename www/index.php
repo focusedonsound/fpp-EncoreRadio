@@ -212,12 +212,16 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
   </div>
 </div>
 
-<!-- Default-visible reminder. The script below hides it once FPP's own
-     schedule actually contains an "Encore Radio - Start" (or "...Play
-     Station") command entry, and leaves it showing on any API error - so an
-     unreachable schedule API never silently suppresses the reminder. No
-     manual dismiss: it is purely driven by whether a schedule exists, and
-     reappears if those entries are ever removed. -->
+<!-- Two schedule banners, driven by the script below against FPP's own
+     schedule. Default state (shown on first paint and left as-is on any API
+     error, so an unreachable schedule API never silently suppresses the
+     nudge): the "schedule it" reminder is visible, the stop-missing warning
+     is hidden. The script then resolves to exactly one of three states:
+       - no Start scheduled    -> show the reminder (schedule both)
+       - Start but no Stop      -> show the stop-missing warning (overlap risk)
+       - both Start and Stop    -> hide both
+     No manual dismiss: purely schedule-driven, and a banner reappears if the
+     relevant entry is ever removed. -->
 <div id="er-schedule-reminder" class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
   <i class="fas fa-fw fa-calendar-check"></i>
   <div>
@@ -228,25 +232,53 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
     time it should end.
   </div>
 </div>
+<div id="er-schedule-stop-warning" class="alert alert-danger d-flex align-items-center gap-2 mb-3" role="alert" style="display:none;">
+  <i class="fas fa-fw fa-triangle-exclamation"></i>
+  <div>
+    <strong>No Stop is scheduled.</strong> You have an
+    <strong>Encore Radio - Start</strong> entry but no
+    <strong>Encore Radio - Stop</strong>. Encore Radio will keep playing until
+    something stops it &mdash; if that runs into your light show, both audio
+    streams play at the same time. Add an <strong>Encore Radio - Stop</strong>
+    entry at the end of your after-hours window.
+  </div>
+</div>
 <script>
 (function () {
-  var banner = document.getElementById('er-schedule-reminder');
-  if (!banner) return;
-  // Hide the reminder once the user has actually scheduled Encore Radio to
-  // start. A schedule "command" entry stores the command name in .command
-  // (playlist entries leave it ''); only count entries that are enabled, so a
-  // disabled/parked entry still leaves the reminder up.
+  var reminder = document.getElementById('er-schedule-reminder');
+  var stopWarn = document.getElementById('er-schedule-stop-warning');
+  if (!reminder && !stopWarn) return;
+  // A schedule "command" entry stores the command name in .command (playlist
+  // entries leave it ''); only count enabled entries, so a disabled/parked
+  // entry doesn't count as scheduled.
   var STARTERS = ['Encore Radio - Start', 'Encore Radio - Play Station'];
+  var STOPPERS = ['Encore Radio - Stop'];
   fetch('/api/schedule', { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (entries) {
-      if (!Array.isArray(entries)) return; // leave banner visible on error
-      var scheduled = entries.some(function (e) {
+      if (!Array.isArray(entries)) return; // leave default banners on error
+      var hasStart = entries.some(function (e) {
         return e && e.enabled && STARTERS.indexOf(e.command) !== -1;
       });
-      if (scheduled) banner.style.display = 'none';
+      var hasStop = entries.some(function (e) {
+        return e && e.enabled && STOPPERS.indexOf(e.command) !== -1;
+      });
+      if (!hasStart) {
+        // Nothing starts it yet - the original "schedule it" nudge (which
+        // already tells them to add both Start and Stop).
+        if (reminder) reminder.style.display = '';
+        if (stopWarn) stopWarn.style.display = 'none';
+      } else if (!hasStop) {
+        // It starts but never stops - the real overlap hazard.
+        if (reminder) reminder.style.display = 'none';
+        if (stopWarn) stopWarn.style.display = '';
+      } else {
+        // Fully scheduled - nothing to warn about.
+        if (reminder) reminder.style.display = 'none';
+        if (stopWarn) stopWarn.style.display = 'none';
+      }
     })
-    .catch(function () { /* unreachable API: leave the reminder visible */ });
+    .catch(function () { /* unreachable API: leave the default reminder up */ });
 })();
 </script>
 
