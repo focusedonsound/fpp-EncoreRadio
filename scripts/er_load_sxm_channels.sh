@@ -105,6 +105,7 @@ for c in chans:
         'shortName': c.get('title_short') or '',
         'id': cid,
         'type': c.get('type') or 'channel-linear',
+        'genre': c.get('genre') or '',
         'logo': logo(c),
         'unentitled': bool(c.get('unentitled')),
         'offAir': bool(c.get('off_air')),
