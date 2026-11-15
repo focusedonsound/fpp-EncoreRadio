@@ -62,6 +62,10 @@ fi
 if [[ -f "${STATE_DIR}/aiosxm.pid" ]]; then
     bash "${HERE}/er_sxm_proxy.sh" stop >/dev/null 2>&1 || true
 fi
+# Clear the resolved-channel marker the now-playing line reads - nothing is
+# playing once we've stopped. (The cached channel LINEUP, sxm_channels.json,
+# is intentionally left alone; it's reusable across sessions.)
+rm -f "${STATE_DIR}/sxm_active.json" 2>/dev/null || true
 
 # Network Share reads the share via smbclient in a background batch
 # scheduler (see netshare_batch_scheduler.sh) rather than a kernel mount -
