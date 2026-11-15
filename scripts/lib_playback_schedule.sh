@@ -57,6 +57,32 @@ except: print('')
 " 2>/dev/null
 }
 
+# SiriusXM anti-idle keepalive (free - a reliability feature of the SiriusXM
+# source, not a premium capability of its own). Launch the keepalive watchdog
+# if it's enabled in config and not already running. Safe to call repeatedly:
+# the watchdog also flock-guards itself, so a redundant call that loses the
+# check-then-launch race just exits harmlessly. Called from er_cmd_start.sh
+# (initial Start when the source is siriusxm) and from er_playback_scheduler.sh
+# (Rotation/Fallback switching TO siriusxm later). Requires STATE_DIR, HERE,
+# and LOG_FILE set by the caller (all three already are in both callers).
+er_sxm_keepalive_enabled() {
+    python3 -c "
+import json
+try:    print(json.load(open('$CFG_FILE')).get('siriusxm', {}).get('keepalive', {}).get('enabled', True))
+except: print(True)
+" 2>/dev/null
+}
+
+er_ensure_sxm_keepalive() {
+    [[ "$(er_sxm_keepalive_enabled)" != "True" ]] && return 0
+    local pid_file="${STATE_DIR}/sxm_keepalive.pid"
+    if [[ -f "$pid_file" ]] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null; then
+        return 0
+    fi
+    nohup bash "${HERE}/er_sxm_keepalive.sh" >> "${LOG_FILE:-/dev/null}" 2>&1 &
+    echo $! > "$pid_file"
+}
+
 er_next_fallback_target() {
     # $1 = current source ("" if none active yet)
     python3 -c "

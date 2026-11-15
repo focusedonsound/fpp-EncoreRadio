@@ -156,3 +156,15 @@ except: print('')
         fi
     fi
 fi
+
+# SiriusXM anti-idle keepalive (free) - periodically re-tunes SiriusXM so its
+# server-side ~4h "Are you still there?" idle gate never trips during
+# unattended overnight playback. On by default; see er_sxm_keepalive.sh.
+# er_ensure_sxm_keepalive (lib_playback_schedule.sh) honours the config toggle
+# and is a no-op if the watchdog is already running.
+if [[ "$STARTED_SOURCE" == "siriusxm" ]]; then
+    er_ensure_sxm_keepalive
+    if [[ -f "${STATE_DIR}/sxm_keepalive.pid" ]]; then
+        log "SiriusXM keepalive watchdog running pid=$(cat "${STATE_DIR}/sxm_keepalive.pid")"
+    fi
+fi

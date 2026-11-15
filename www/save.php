@@ -52,7 +52,7 @@ function erDefaultConfig() {
     "fallback" => ["enabled" => false, "chain" => []],
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
-    "siriusxm" => ["username" => "", "password" => "", "channel" => "", "channelName" => "", "proxyPort" => 8124, "bitrate" => "128k"],
+    "siriusxm" => ["username" => "", "password" => "", "channel" => "", "channelName" => "", "proxyPort" => 8124, "bitrate" => "128k", "keepalive" => ["enabled" => true, "intervalMinutes" => 180]],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
     "license" => ["key" => ""],
@@ -252,6 +252,17 @@ if ($premiumUnlocked) {
   if (in_array($postedSxmBitrate, ["32k", "64k", "96k", "128k", "256k"], true)) {
     $cfg["siriusxm"]["bitrate"] = $postedSxmBitrate;
   }
+  // Anti-idle keepalive: periodically re-tune SiriusXM so its server-side
+  // ~4h "Are you still there?" gate never trips during unattended overnight
+  // playback (see scripts/er_sxm_keepalive.sh). On by default. The interval
+  // is clamped to a sane range here AND in the watchdog; kept under the ~4h
+  // cutoff it exists to stay below.
+  if (!isset($cfg["siriusxm"]["keepalive"]) || !is_array($cfg["siriusxm"]["keepalive"])) {
+    $cfg["siriusxm"]["keepalive"] = ["enabled" => true, "intervalMinutes" => 180];
+  }
+  $cfg["siriusxm"]["keepalive"]["enabled"] = isset($_POST["siriusxm_keepalive_enabled"]);
+  $postedSxmKaMins = (int)($_POST["siriusxm_keepalive_intervalMinutes"] ?? $cfg["siriusxm"]["keepalive"]["intervalMinutes"]);
+  $cfg["siriusxm"]["keepalive"]["intervalMinutes"] = max(15, min(230, $postedSxmKaMins));
 
   // Spotify (premium tier) - only the form-editable fields; accessToken/
   // refreshToken/tokenExpiresAt come from the OAuth callback, deviceName
