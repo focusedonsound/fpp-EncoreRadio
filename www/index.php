@@ -196,6 +196,18 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
     </a>
   </div>
 </div>
+
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+  <i class="fas fa-fw fa-calendar-check"></i>
+  <div>
+    <strong>Don't forget to schedule it!</strong> Encore Radio only plays
+    when something runs its commands. For hands-off after-hours music, add
+    two FPP Schedule entries: <strong>Encore Radio - Start</strong> at the
+    time it should begin, and <strong>Encore Radio - Stop</strong> at the
+    time it should end.
+  </div>
+</div>
+
 <p class="text-muted">
   Keep the show's radio station feel going after the lights go dark.
   A <strong>custom internet radio URL</strong>, a <strong>network
