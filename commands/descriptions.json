@@ -29,5 +29,10 @@
     "name": "Encore Radio - Sync Spotify Service",
     "description": "Internal: enable/disable the Raspotify (Spotify Connect) service to match whether Spotify is configured. Dispatched automatically after every config save - not meant to be run manually.",
     "script": "er_cmd_sync_spotify_service.sh"
+  },
+  {
+    "name": "Encore Radio - Load SiriusXM Channels",
+    "description": "Internal: log in to SiriusXM and cache your channel lineup for the plugin page's channel picker. Dispatched by the 'Connect & load channels' button - not meant to be run manually.",
+    "script": "er_cmd_load_sxm_channels.sh"
   }
 ]

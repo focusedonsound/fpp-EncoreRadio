@@ -68,6 +68,21 @@ $raspotifyInstalled = file_exists("/usr/bin/librespot");
 // step failed. Mirrors $raspotifyInstalled for the Spotify card.
 $aiosxmInstalled = file_exists("/home/fpp/media/plugindata/fpp-EncoreRadio/aiosxm-venv/bin/aiosxm-proxy");
 
+// Cached SiriusXM channel lineup (written by the "Encore Radio - Load SiriusXM
+// Channels" command via the "Connect & load channels" button). Pre-populates
+// the channel picker on page load so the user doesn't have to re-fetch every
+// visit. Absent/empty until they've loaded it at least once.
+$sxmChannels = [];
+$sxmChannelsFetchedAt = 0;
+$sxmChannelsFile = "/home/fpp/media/plugins/fpp-EncoreRadio/state/sxm_channels.json";
+if (file_exists($sxmChannelsFile)) {
+  $sxmCache = json_decode(@file_get_contents($sxmChannelsFile), true);
+  if (is_array($sxmCache) && ($sxmCache["status"] ?? "") === "ok" && is_array($sxmCache["channels"] ?? null)) {
+    $sxmChannels = $sxmCache["channels"];
+    $sxmChannelsFetchedAt = (int)($sxmCache["fetchedAt"] ?? 0);
+  }
+}
+
 $hasLicenseKey = trim((string)$cfg["license"]["key"]) !== "";
 $trialSecondsUsed = erLoadTrialSecondsUsed("/home/fpp/media/plugindata/fpp-EncoreRadio/trial_state.json");
 $trialSecondsRemaining = max(0, (10 * 3600) - $trialSecondsUsed);
@@ -239,11 +254,8 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
   Keep the show's radio station feel going after the lights go dark.
   A <strong>custom internet radio URL</strong>, a <strong>network
   share</strong> of your own music, and <strong>TuneIn</strong> are all
-  free; <strong>Pandora</strong> and <strong>Spotify</strong> are
-  premium features. Add FPP Schedule
-  entries calling <strong>Encore Radio - Start</strong> /
-  <strong>Encore Radio - Stop</strong> for your after-hours window, and
-  you're set.
+  free; <strong>Pandora</strong>, <strong>SiriusXM</strong>, and
+  <strong>Spotify</strong> are premium features.
 </p>
 
 <p>
@@ -466,12 +478,49 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
                   </td>
                 </tr>
                 <tr>
+                  <td class="py-1" style="vertical-align:top;">Browse Channels</td>
+                  <td class="py-1">
+                    <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
+                      <button type="button" class="er-btn er-btn-secondary er-btn-sm" id="er-siriusxm-load-btn" onclick="erLoadSiriusxmChannels()">
+                        <i class="fas fa-fw fa-arrows-rotate"></i> <?php echo $sxmChannels ? "Reload channel list" : "Connect &amp; load channels"; ?>
+                      </button>
+                      <span class="small text-muted" id="er-siriusxm-load-status"><?php
+                        if ($sxmChannels) {
+                          echo count($sxmChannels) . " channels loaded";
+                          if ($sxmChannelsFetchedAt) echo " (" . htmlspecialchars(date('M j, g:i a', $sxmChannelsFetchedAt)) . ")";
+                        }
+                      ?></span>
+                    </div>
+                    <input type="text" class="form-control form-control-sm mb-1" id="er-siriusxm-channel-filter"
+                           placeholder="Filter by number or name..." oninput="erFilterSiriusxmChannels()"
+                           style="max-width:420px; <?php echo $sxmChannels ? "" : "display:none;"; ?>" />
+                    <select class="form-select form-select-sm" id="er-siriusxm-channel-picker" size="8"
+                            onchange="erPickSiriusxmChannel()"
+                            style="max-width:420px; <?php echo $sxmChannels ? "" : "display:none;"; ?>">
+                      <?php foreach ($sxmChannels as $c): ?>
+                        <?php
+                          $num = (isset($c["number"]) && $c["number"] !== null) ? (string)$c["number"] : "";
+                          $nm  = (string)($c["name"] ?? "");
+                          $lbl = ($num !== "" ? $num . " - " : "") . $nm;
+                          $search = strtolower(trim($num . " " . $nm . " " . (string)($c["shortName"] ?? "")));
+                        ?>
+                        <option value="<?php echo htmlspecialchars($num !== "" ? $num : $nm); ?>"
+                                data-name="<?php echo htmlspecialchars($nm); ?>"
+                                data-search="<?php echo htmlspecialchars($search); ?>"><?php
+                          echo htmlspecialchars($lbl);
+                          echo !empty($c["unentitled"]) ? " (not in your plan)" : "";
+                        ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                  </td>
+                </tr>
+                <tr>
                   <td class="py-1">Channel</td>
-                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="siriusxm_channel" placeholder="e.g. 2  (or a name like SiriusXM Hits 1)" value="<?php echo htmlspecialchars($cfg["siriusxm"]["channel"]); ?>" /></td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" id="er-siriusxm-channel" name="siriusxm_channel" placeholder="e.g. 2  (or a name like SiriusXM Hits 1)" value="<?php echo htmlspecialchars($cfg["siriusxm"]["channel"]); ?>" /></td>
                 </tr>
                 <tr>
                   <td class="py-1">Channel Name (label only)</td>
-                  <td class="py-1"><input type="text" class="form-control form-control-sm" name="siriusxm_channelName" value="<?php echo htmlspecialchars($cfg["siriusxm"]["channelName"]); ?>" /></td>
+                  <td class="py-1"><input type="text" class="form-control form-control-sm" id="er-siriusxm-channelName" name="siriusxm_channelName" value="<?php echo htmlspecialchars($cfg["siriusxm"]["channelName"]); ?>" /></td>
                 </tr>
                 <tr>
                   <td class="py-1">Audio Quality</td>
@@ -487,11 +536,16 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
               <input type="hidden" name="siriusxm_proxyPort" value="<?php echo (int)$cfg["siriusxm"]["proxyPort"]; ?>" />
               <p class="small text-muted mt-2 mb-0">
                 <i class="fas fa-fw fa-circle-info"></i>
-                Enter the SiriusXM <strong>channel number</strong> (as shown in the
-                SiriusXM app) or the channel's name. If it can't be matched, the
-                exact channel name is listed in the Encore Radio log the first time
-                you Start. A live channel picker is coming in a later release.
+                Use <strong>Browse Channels</strong> above to load your lineup and
+                pick a channel, or just type a <strong>channel number</strong> (as
+                shown in the SiriusXM app) or name directly. Loading the list signs
+                in to SiriusXM, so enter your username and password and click
+                <strong>Save</strong> first.
               </p>
+              <div id="er-siriusxm-nowplaying" class="alert alert-secondary py-2 px-3 mt-2 mb-0 d-flex align-items-center gap-2" style="display:none;">
+                <i class="fas fa-fw fa-music"></i>
+                <span><span class="text-muted">Now playing:</span> <strong id="er-siriusxm-np-text"></strong></span>
+              </div>
               </fieldset>
             </td>
           </tr>
@@ -1268,6 +1322,109 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
     if (el.value === '__unchanged__') el.value = '';
     el.type = (el.type === 'password') ? 'text' : 'password';
   }
+
+  // SiriusXM channel picker. "Connect & load channels" dispatches the
+  // "Load SiriusXM Channels" command (which logs in and caches the lineup),
+  // then we populate a filterable listbox. Picking an entry fills in the
+  // free-text Channel / Channel Name fields - which stay editable as a
+  // fallback if the list can't load or a channel is missing.
+  async function erLoadSiriusxmChannels() {
+    const btn = document.getElementById('er-siriusxm-load-btn');
+    const status = document.getElementById('er-siriusxm-load-status');
+    const picker = document.getElementById('er-siriusxm-channel-picker');
+    const filter = document.getElementById('er-siriusxm-channel-filter');
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'Connecting to SiriusXM and loading channels - this can take a few seconds...';
+    try {
+      const res = await fetch(erUrl('sxm_load_channels.php'), { method: 'POST', cache: 'no-store' });
+      const j = await erReadJson(res);
+      if (!j || !j.ok) {
+        if (status) status.textContent = (j && j.error) ? j.error : 'Could not load channels.';
+        return;
+      }
+      erBuildSiriusxmOptions(j.channels || []);
+      if (filter) filter.style.display = '';
+      if (picker) picker.style.display = '';
+      if (btn) btn.innerHTML = '<i class="fas fa-fw fa-arrows-rotate"></i> Reload channel list';
+      if (status) status.textContent = (j.count || (j.channels ? j.channels.length : 0)) + ' channels loaded';
+    } catch (e) {
+      if (status) status.textContent = 'Could not load channels (network error).';
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function erBuildSiriusxmOptions(channels) {
+    const picker = document.getElementById('er-siriusxm-channel-picker');
+    if (!picker) return;
+    picker.innerHTML = '';
+    channels.forEach(function (c) {
+      const num = (c.number !== null && c.number !== undefined) ? String(c.number) : '';
+      const nm = c.name || '';
+      const opt = document.createElement('option');
+      opt.value = (num !== '') ? num : nm;
+      opt.setAttribute('data-name', nm);
+      opt.setAttribute('data-search', (num + ' ' + nm + ' ' + (c.shortName || '')).toLowerCase().trim());
+      opt.textContent = (num !== '' ? num + ' - ' : '') + nm + (c.unentitled ? ' (not in your plan)' : '');
+      picker.appendChild(opt);
+    });
+  }
+
+  function erFilterSiriusxmChannels() {
+    const filter = document.getElementById('er-siriusxm-channel-filter');
+    const picker = document.getElementById('er-siriusxm-channel-picker');
+    if (!filter || !picker) return;
+    const q = filter.value.toLowerCase().trim();
+    Array.prototype.forEach.call(picker.options, function (opt) {
+      const hay = opt.getAttribute('data-search') || opt.textContent.toLowerCase();
+      opt.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+    });
+  }
+
+  function erPickSiriusxmChannel() {
+    const picker = document.getElementById('er-siriusxm-channel-picker');
+    if (!picker || picker.selectedIndex < 0) return;
+    const opt = picker.options[picker.selectedIndex];
+    const chEl = document.getElementById('er-siriusxm-channel');
+    const nmEl = document.getElementById('er-siriusxm-channelName');
+    // Fire 'input' so the unsaved-changes banner notices - picking a channel
+    // is an edit the user still needs to Save.
+    if (chEl) { chEl.value = opt.value; chEl.dispatchEvent(new Event('input', { bubbles: true })); }
+    if (nmEl) { nmEl.value = opt.getAttribute('data-name') || ''; nmEl.dispatchEvent(new Event('input', { bubbles: true })); }
+  }
+
+  // Live now-playing line for SiriusXM. Polls a read-only endpoint that queries
+  // the already-running proxy; shows nothing unless SiriusXM is actually the
+  // active source. Only polls while the SiriusXM section is on screen.
+  (function erSiriusxmNowPlaying() {
+    const box = document.getElementById('er-siriusxm-nowplaying');
+    const txt = document.getElementById('er-siriusxm-np-text');
+    const section = document.getElementById('er-siriusxm-section');
+    if (!box || !txt || !section) return;
+    async function tick() {
+      if (section.style.display === 'none') { box.style.display = 'none'; return; }
+      try {
+        const res = await fetch(erUrl('sxm_nowplaying.php'), { cache: 'no-store' });
+        const j = await erReadJson(res);
+        if (!j || !j.playing) { box.style.display = 'none'; return; }
+        let label;
+        if (j.isAd) {
+          label = 'Commercial break';
+        } else {
+          const a = (j.artist || '').trim();
+          const t = (j.title || '').trim();
+          if (a && t) label = a + ' — ' + t;
+          else if (t) label = t;
+          else if (j.show) label = j.show.trim();
+          else label = (j.channelName || 'On air');
+        }
+        txt.textContent = label;
+        box.style.display = '';
+      } catch (e) { /* transient - keep the last line */ }
+    }
+    tick();
+    setInterval(tick, 15000);
+  })();
 
   async function erSearchTuneIn() {
     const q = document.getElementById('er-tunein-search').value.trim();

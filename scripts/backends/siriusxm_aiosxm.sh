@@ -77,6 +77,31 @@ if [[ -z "$STREAM_URL" ]]; then
     exit 1
 fi
 
+# Persist the resolved channel id/type so the plugin page's live now-playing
+# line (www/sxm_nowplaying.php) can query the proxy's /now-playing/{id} for the
+# channel that's actually playing. The id/type are already in STREAM_URL
+# (…/stream/{type}/{id}/playlist.m3u8?…) - parse them back out rather than
+# making another resolve round-trip. Best-effort: never fail playback over it.
+STATE_DIR="/home/fpp/media/plugins/fpp-EncoreRadio/state"
+mkdir -p "$STATE_DIR" 2>/dev/null || true
+SXM_REST="${STREAM_URL#*/stream/}"
+SXM_TYPE="${SXM_REST%%/*}"
+SXM_REST2="${SXM_REST#*/}"
+SXM_ID="${SXM_REST2%%/*}"
+CHANNEL_NAME="$(cfg channelName)"
+SXM_TYPE="$SXM_TYPE" SXM_ID="$SXM_ID" SXM_CH="$CHANNEL" SXM_CHNAME="$CHANNEL_NAME" \
+python3 -c "
+import json, os, time
+json.dump({
+    'source': 'siriusxm',
+    'type': os.environ.get('SXM_TYPE', ''),
+    'id': os.environ.get('SXM_ID', ''),
+    'channel': os.environ.get('SXM_CH', ''),
+    'channelName': os.environ.get('SXM_CHNAME', ''),
+    'startedAt': int(time.time()),
+}, open('${STATE_DIR}/sxm_active.json', 'w'))
+" 2>/dev/null || true
+
 log "Starting relay for SiriusXM channel '${CHANNEL}': ${STREAM_URL}"
 "${HERE}/er_relay.sh" start url "$STREAM_URL"
 
