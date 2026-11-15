@@ -557,19 +557,41 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
                     <select class="form-select form-select-sm" id="er-siriusxm-channel-picker" size="8"
                             onchange="erPickSiriusxmChannel()"
                             style="max-width:420px; <?php echo $sxmChannels ? "" : "display:none;"; ?>">
-                      <?php foreach ($sxmChannels as $c): ?>
-                        <?php
-                          $num = (isset($c["number"]) && $c["number"] !== null) ? (string)$c["number"] : "";
-                          $nm  = (string)($c["name"] ?? "");
-                          $lbl = ($num !== "" ? $num . " - " : "") . $nm;
-                          $search = strtolower(trim($num . " " . $nm . " " . (string)($c["shortName"] ?? "")));
-                        ?>
-                        <option value="<?php echo htmlspecialchars($num !== "" ? $num : $nm); ?>"
-                                data-name="<?php echo htmlspecialchars($nm); ?>"
-                                data-search="<?php echo htmlspecialchars($search); ?>"><?php
-                          echo htmlspecialchars($lbl);
-                          echo !empty($c["unentitled"]) ? " (not in your plan)" : "";
-                        ?></option>
+                      <?php
+                        // Group the lineup by SiriusXM's own genre/category
+                        // string (Holiday, Rock, Pop, ...) into <optgroup>s.
+                        // Channels without a genre fall under "Other", kept
+                        // last. Within a group the loader's channel-number
+                        // order is preserved.
+                        $sxmByGenre = [];
+                        foreach ($sxmChannels as $c) {
+                          $g = trim((string)($c["genre"] ?? ""));
+                          if ($g === "") $g = "Other";
+                          $sxmByGenre[$g][] = $c;
+                        }
+                        uksort($sxmByGenre, function ($a, $b) {
+                          if ($a === "Other") return 1;
+                          if ($b === "Other") return -1;
+                          return strcasecmp($a, $b);
+                        });
+                      ?>
+                      <?php foreach ($sxmByGenre as $genre => $chans): ?>
+                        <optgroup label="<?php echo htmlspecialchars($genre); ?>">
+                          <?php foreach ($chans as $c): ?>
+                            <?php
+                              $num = (isset($c["number"]) && $c["number"] !== null) ? (string)$c["number"] : "";
+                              $nm  = (string)($c["name"] ?? "");
+                              $lbl = ($num !== "" ? $num . " - " : "") . $nm;
+                              $search = strtolower(trim($num . " " . $nm . " " . (string)($c["shortName"] ?? "") . " " . $genre));
+                            ?>
+                            <option value="<?php echo htmlspecialchars($num !== "" ? $num : $nm); ?>"
+                                    data-name="<?php echo htmlspecialchars($nm); ?>"
+                                    data-search="<?php echo htmlspecialchars($search); ?>"><?php
+                              echo htmlspecialchars($lbl);
+                              echo !empty($c["unentitled"]) ? " (not in your plan)" : "";
+                            ?></option>
+                          <?php endforeach; ?>
+                        </optgroup>
                       <?php endforeach; ?>
                     </select>
                   </td>
@@ -1418,15 +1440,35 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
     const picker = document.getElementById('er-siriusxm-channel-picker');
     if (!picker) return;
     picker.innerHTML = '';
+    // Group by SiriusXM genre/category (Holiday, Rock, ...) into <optgroup>s;
+    // no-genre channels go under "Other", kept last. Channel-number order
+    // within a group is preserved from the loader.
+    const groups = {};
+    const order = [];
     channels.forEach(function (c) {
-      const num = (c.number !== null && c.number !== undefined) ? String(c.number) : '';
-      const nm = c.name || '';
-      const opt = document.createElement('option');
-      opt.value = (num !== '') ? num : nm;
-      opt.setAttribute('data-name', nm);
-      opt.setAttribute('data-search', (num + ' ' + nm + ' ' + (c.shortName || '')).toLowerCase().trim());
-      opt.textContent = (num !== '' ? num + ' - ' : '') + nm + (c.unentitled ? ' (not in your plan)' : '');
-      picker.appendChild(opt);
+      const g = ((c.genre || '').trim()) || 'Other';
+      if (!groups[g]) { groups[g] = []; order.push(g); }
+      groups[g].push(c);
+    });
+    order.sort(function (a, b) {
+      if (a === 'Other') return 1;
+      if (b === 'Other') return -1;
+      return a.toLowerCase().localeCompare(b.toLowerCase());
+    });
+    order.forEach(function (g) {
+      const og = document.createElement('optgroup');
+      og.label = g;
+      groups[g].forEach(function (c) {
+        const num = (c.number !== null && c.number !== undefined) ? String(c.number) : '';
+        const nm = c.name || '';
+        const opt = document.createElement('option');
+        opt.value = (num !== '') ? num : nm;
+        opt.setAttribute('data-name', nm);
+        opt.setAttribute('data-search', (num + ' ' + nm + ' ' + (c.shortName || '') + ' ' + g).toLowerCase().trim());
+        opt.textContent = (num !== '' ? num + ' - ' : '') + nm + (c.unentitled ? ' (not in your plan)' : '');
+        og.appendChild(opt);
+      });
+      picker.appendChild(og);
     });
   }
 
@@ -1435,10 +1477,27 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
     const picker = document.getElementById('er-siriusxm-channel-picker');
     if (!filter || !picker) return;
     const q = filter.value.toLowerCase().trim();
-    Array.prototype.forEach.call(picker.options, function (opt) {
-      const hay = opt.getAttribute('data-search') || opt.textContent.toLowerCase();
-      opt.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
-    });
+    // Filter options (data-search includes the genre, so typing a category
+    // name matches its channels) and hide any optgroup left with nothing
+    // visible. Works whether or not the list is grouped.
+    const groups = picker.querySelectorAll('optgroup');
+    if (groups.length) {
+      Array.prototype.forEach.call(groups, function (og) {
+        let anyVisible = false;
+        Array.prototype.forEach.call(og.querySelectorAll('option'), function (opt) {
+          const hay = opt.getAttribute('data-search') || opt.textContent.toLowerCase();
+          const show = (!q || hay.indexOf(q) !== -1);
+          opt.style.display = show ? '' : 'none';
+          if (show) anyVisible = true;
+        });
+        og.style.display = anyVisible ? '' : 'none';
+      });
+    } else {
+      Array.prototype.forEach.call(picker.options, function (opt) {
+        const hay = opt.getAttribute('data-search') || opt.textContent.toLowerCase();
+        opt.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+      });
+    }
   }
 
   function erPickSiriusxmChannel() {
