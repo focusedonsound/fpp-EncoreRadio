@@ -36,6 +36,20 @@ $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 $curlError = curl_error($ch);
 curl_close($ch);
 
+// A 404 here means fppd doesn't know the "Load SiriusXM Channels" command
+// yet. fppd only reads commands/descriptions.json at startup, and the plugin
+// installer flags a restart (FPP's restartFlag) rather than forcing one
+// mid-show - so right after updating to the version that added this command,
+// it won't dispatch until FPPD is restarted. Say exactly that instead of a
+// bare "HTTP 404", which otherwise looks like a broken URL.
+if ($httpCode === 404) {
+    echo json_encode([
+        "ok" => false,
+        "error" => "Encore Radio needs an FPPD restart to finish setting up SiriusXM. Restart FPPD (FPP's Status page, or reboot the device), then click \"Connect & load channels\" again.",
+    ]);
+    exit;
+}
+
 if ($httpCode !== 200) {
     echo json_encode([
         "ok" => false,
