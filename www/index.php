@@ -197,7 +197,13 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
   </div>
 </div>
 
-<div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+<!-- Default-visible reminder. The script below hides it once FPP's own
+     schedule actually contains an "Encore Radio - Start" (or "...Play
+     Station") command entry, and leaves it showing on any API error - so an
+     unreachable schedule API never silently suppresses the reminder. No
+     manual dismiss: it is purely driven by whether a schedule exists, and
+     reappears if those entries are ever removed. -->
+<div id="er-schedule-reminder" class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
   <i class="fas fa-fw fa-calendar-check"></i>
   <div>
     <strong>Don't forget to schedule it!</strong> Encore Radio only plays
@@ -207,6 +213,27 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
     time it should end.
   </div>
 </div>
+<script>
+(function () {
+  var banner = document.getElementById('er-schedule-reminder');
+  if (!banner) return;
+  // Hide the reminder once the user has actually scheduled Encore Radio to
+  // start. A schedule "command" entry stores the command name in .command
+  // (playlist entries leave it ''); only count entries that are enabled, so a
+  // disabled/parked entry still leaves the reminder up.
+  var STARTERS = ['Encore Radio - Start', 'Encore Radio - Play Station'];
+  fetch('/api/schedule', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (entries) {
+      if (!Array.isArray(entries)) return; // leave banner visible on error
+      var scheduled = entries.some(function (e) {
+        return e && e.enabled && STARTERS.indexOf(e.command) !== -1;
+      });
+      if (scheduled) banner.style.display = 'none';
+    })
+    .catch(function () { /* unreachable API: leave the reminder visible */ });
+})();
+</script>
 
 <p class="text-muted">
   Keep the show's radio station feel going after the lights go dark.
