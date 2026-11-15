@@ -248,35 +248,63 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
   var reminder = document.getElementById('er-schedule-reminder');
   var stopWarn = document.getElementById('er-schedule-stop-warning');
   if (!reminder && !stopWarn) return;
-  // A schedule "command" entry stores the command name in .command (playlist
-  // entries leave it ''); only count enabled entries, so a disabled/parked
-  // entry doesn't count as scheduled.
+  // Count an Encore Radio Start/Stop as "scheduled" whether it's a direct
+  // Command schedule entry (.command on the schedule row) OR a command nested
+  // inside a scheduled Playlist (people commonly schedule a playlist that runs
+  // the commands). Only enabled entries count.
   var STARTERS = ['Encore Radio - Start', 'Encore Radio - Play Station'];
   var STOPPERS = ['Encore Radio - Stop'];
+  var hs = { start: false, stop: false };
+
+  function scan(items) {
+    // items: schedule rows or playlist entries, each with .command/.enabled
+    if (!Array.isArray(items)) return;
+    items.forEach(function (e) {
+      if (!e || !e.enabled) return;
+      if (STARTERS.indexOf(e.command) !== -1) hs.start = true;
+      if (STOPPERS.indexOf(e.command) !== -1) hs.stop = true;
+    });
+  }
+
+  function resolve() {
+    if (!hs.start) {                 // nothing starts it yet
+      if (reminder) reminder.style.display = '';
+      if (stopWarn) stopWarn.style.display = 'none';
+    } else if (!hs.stop) {           // starts but never stops - overlap hazard
+      if (reminder) reminder.style.display = 'none';
+      if (stopWarn) stopWarn.style.display = '';
+    } else {                         // fully scheduled
+      if (reminder) reminder.style.display = 'none';
+      if (stopWarn) stopWarn.style.display = 'none';
+    }
+  }
+
   fetch('/api/schedule', { cache: 'no-store' })
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (entries) {
       if (!Array.isArray(entries)) return; // leave default banners on error
-      var hasStart = entries.some(function (e) {
-        return e && e.enabled && STARTERS.indexOf(e.command) !== -1;
+      scan(entries); // direct Command schedule rows
+      // Collect enabled scheduled Playlists - their contents may hold the
+      // Start/Stop commands. De-duped; skipped entirely once we already have
+      // both (no point fetching playlists we don't need).
+      var names = {};
+      entries.forEach(function (e) {
+        if (e && e.enabled && e.type === 'playlist' && e.playlist) names[e.playlist] = true;
       });
-      var hasStop = entries.some(function (e) {
-        return e && e.enabled && STOPPERS.indexOf(e.command) !== -1;
-      });
-      if (!hasStart) {
-        // Nothing starts it yet - the original "schedule it" nudge (which
-        // already tells them to add both Start and Stop).
-        if (reminder) reminder.style.display = '';
-        if (stopWarn) stopWarn.style.display = 'none';
-      } else if (!hasStop) {
-        // It starts but never stops - the real overlap hazard.
-        if (reminder) reminder.style.display = 'none';
-        if (stopWarn) stopWarn.style.display = '';
-      } else {
-        // Fully scheduled - nothing to warn about.
-        if (reminder) reminder.style.display = 'none';
-        if (stopWarn) stopWarn.style.display = 'none';
-      }
+      var list = Object.keys(names);
+      if (!list.length || (hs.start && hs.stop)) { resolve(); return; }
+
+      return Promise.all(list.map(function (name) {
+        return fetch('/api/playlist/' + encodeURIComponent(name), { cache: 'no-store' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (pl) {
+            if (!pl) return;
+            scan(pl.leadIn);
+            scan(pl.mainPlaylist);
+            scan(pl.leadOut);
+          })
+          .catch(function () { /* a playlist we can't read - just skip it */ });
+      })).then(resolve);
     })
     .catch(function () { /* unreachable API: leave the default reminder up */ });
 })();
