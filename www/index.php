@@ -12,6 +12,7 @@ function erLoadConfig($path) {
     "fallback" => ["enabled" => false, "chain" => []],
     "tunein" => ["stationId" => "", "stationName" => "", "streamUrl" => ""],
     "pandora" => ["username" => "", "password" => "", "stationId" => "", "stationName" => ""],
+    "siriusxm" => ["username" => "", "password" => "", "channel" => "", "channelName" => "", "proxyPort" => 8124, "bitrate" => "128k", "keepalive" => ["enabled" => true, "intervalMinutes" => 180]],
     "spotify" => ["clientId" => "", "clientSecret" => "", "accessToken" => "", "refreshToken" => "", "tokenExpiresAt" => 0, "playlistUri" => "", "playlistName" => "", "deviceName" => ""],
     "announce" => ["enabled" => false, "slot" => "", "mode" => "cadence", "cadenceMinutes" => 15, "times" => []],
     "license" => ["key" => ""],
@@ -612,6 +613,36 @@ $premiumUnlocked = $trialSecondsRemaining > 0 || $hasLicenseKey;
                         <option value="<?php echo $bv; ?>" <?php echo ($cfg["siriusxm"]["bitrate"] === $bv) ? "selected" : ""; ?>><?php echo $bl; ?></option>
                       <?php endforeach; ?>
                     </select>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-1" style="vertical-align:top;">Keep Alive<br><span class="small text-muted">(overnight)</span></td>
+                  <td class="py-1">
+                    <div class="form-check mb-1">
+                      <input class="form-check-input" type="checkbox" value="1"
+                             id="er-siriusxm-keepalive-enabled" name="siriusxm_keepalive_enabled"
+                             onchange="document.getElementById('er-siriusxm-keepalive-interval-wrap').style.display = this.checked ? '' : 'none';"
+                             <?php echo !empty($cfg["siriusxm"]["keepalive"]["enabled"]) ? "checked" : ""; ?> />
+                      <label class="form-check-label" for="er-siriusxm-keepalive-enabled">
+                        Auto re-tune to avoid SiriusXM's idle timeout
+                      </label>
+                    </div>
+                    <div id="er-siriusxm-keepalive-interval-wrap"
+                         style="<?php echo !empty($cfg["siriusxm"]["keepalive"]["enabled"]) ? "" : "display:none;"; ?>">
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="small text-muted">Every</span>
+                        <input type="number" class="form-control form-control-sm" style="width:5.5em;"
+                               name="siriusxm_keepalive_intervalMinutes" min="15" max="230" step="5"
+                               value="<?php echo (int)$cfg["siriusxm"]["keepalive"]["intervalMinutes"]; ?>" />
+                        <span class="small text-muted">minutes</span>
+                      </div>
+                    </div>
+                    <p class="small text-muted mb-0 mt-1">
+                      SiriusXM interrupts any stream left playing for ~4&nbsp;hours with an
+                      <em>&ldquo;Are you still there?&rdquo;</em> prompt. This briefly re-tunes
+                      before then (a ~1&ndash;2&nbsp;second gap) so unattended music keeps playing
+                      overnight. Leave at 180.
+                    </p>
                   </td>
                 </tr>
               </table>

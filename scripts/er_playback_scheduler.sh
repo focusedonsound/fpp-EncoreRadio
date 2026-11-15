@@ -34,6 +34,10 @@ switch_to() {
     bash "${HERE}/er_stop_playback.sh"
     sleep 1
     bash "${HERE}/er_start_source.sh" "$1"
+    # Landing on SiriusXM (via Rotation schedule or a Fallback hop) needs the
+    # anti-idle keepalive watchdog too, not just a Start that began on it.
+    # No-op if it's disabled or already running (see lib_playback_schedule.sh).
+    [[ "$1" == "siriusxm" ]] && er_ensure_sxm_keepalive
 }
 
 log "Playback scheduler starting (pid=$$)"
